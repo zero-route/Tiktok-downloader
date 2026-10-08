@@ -1,85 +1,58 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchTikTokMedia } from "@/lib/rapidapi";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const ALLOWED_HOST = "robotilab.online";
+
 export async function GET(
   request: NextRequest
 ) {
-  const videoUrl =
+  const downloadUrl =
     request.nextUrl.searchParams
-      .get("videoUrl")
-      ?.trim();
+      .get("url");
 
-  const download =
-    request.nextUrl.searchParams.get(
-      "download"
-    ) === "1";
-
-  if (!videoUrl) {
+  if (!downloadUrl) {
     return NextResponse.json(
       {
         ok: false,
         error:
-          "Video URL wajib diisi.",
+          "Download URL wajib diisi.",
       },
       { status: 400 }
     );
   }
 
   try {
-    const parsedUrl =
-      new URL(videoUrl);
-
-    const hostname =
-      parsedUrl.hostname.toLowerCase();
+    const parsed =
+      new URL(downloadUrl);
 
     if (
-      hostname !== "tiktok.com" &&
-      !hostname.endsWith(".tiktok.com")
+      parsed.protocol !== "https:" ||
+      parsed.hostname !== ALLOWED_HOST
     ) {
       return NextResponse.json(
         {
           ok: false,
           error:
-            "URL video tidak valid.",
+            "Download URL tidak diizinkan.",
         },
         { status: 400 }
       );
     }
 
-    const media =
-      await fetchTikTokMedia(
-        videoUrl
-      );
-
-    if (!media.downloadUrl) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Provider tidak memberikan download URL.",
-        },
-        { status: 502 }
-      );
-    }
-
     const response =
-      await fetch(
-        media.downloadUrl,
-        {
-          method: "GET",
-          redirect: "follow",
-          cache: "no-store",
-          headers: {
-            Accept:
-              "video/mp4,video/*;q=0.9,*/*;q=0.8",
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140 Safari/537.36",
-          },
-        }
-      );
+      await fetch(downloadUrl, {
+        method: "GET",
+        redirect: "follow",
+        cache: "no-store",
+        headers: {
+          Accept:
+            "video/mp4,video/*;q=0.9,*/*;q=0.8",
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140 Safari/537.36",
+        },
+      });
 
     if (
       !response.ok ||
@@ -89,7 +62,7 @@ export async function GET(
         {
           ok: false,
           error:
-            `Provider video HTTP ${response.status}`,
+            `Video provider HTTP ${response.status}`,
         },
         { status: 502 }
       );
@@ -105,16 +78,16 @@ export async function GET(
         "application/json"
       )
     ) {
-      const errorBody =
+      const text =
         await response.text();
 
       return NextResponse.json(
         {
           ok: false,
           error:
-            "Provider mengembalikan response JSON, bukan file video.",
+            "Provider mengembalikan JSON, bukan video.",
           details:
-            errorBody.slice(0, 300),
+            text.slice(0, 300),
         },
         { status: 502 }
       );
@@ -142,26 +115,14 @@ export async function GET(
       );
     }
 
-    if (download) {
-      headers.set(
-        "Content-Disposition",
-        'attachment; filename="tiktok-video.mp4"'
-      );
-    } else {
-      headers.set(
-        "Content-Disposition",
-        "inline"
-      );
-    }
+    headers.set(
+      "Content-Disposition",
+      'attachment; filename="tiktok-video.mp4"'
+    );
 
     headers.set(
       "Cache-Control",
       "no-store, no-cache, must-revalidate"
-    );
-
-    headers.set(
-      "Accept-Ranges",
-      "bytes"
     );
 
     return new NextResponse(
@@ -178,7 +139,7 @@ export async function GET(
         error:
           error instanceof Error
             ? error.message
-            : "Gagal mengambil video.",
+            : "Gagal mengambil file video.",
       },
       { status: 502 }
     );

@@ -50,26 +50,17 @@ function formatNumber(value?: number) {
     return "-";
   }
 
-  return new Intl.NumberFormat(
-    "en-US",
-    {
-      notation: "compact",
-      maximumFractionDigits: 1,
-    }
-  ).format(value);
+  return new Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 
 export default function Home() {
-  const [url, setUrl] =
-    useState("");
-
-  const [loading, setLoading] =
-    useState(false);
-
+  const [url, setUrl] = useState("");
+  const [loading, setLoading] = useState(false);
   const [result, setResult] =
-    useState<ApiResponse | null>(
-      null
-    );
+    useState<ApiResponse | null>(null);
 
   const [videoError, setVideoError] =
     useState(false);
@@ -79,8 +70,7 @@ export default function Home() {
   ) {
     event.preventDefault();
 
-    const cleanUrl =
-      url.trim();
+    const cleanUrl = url.trim();
 
     if (!cleanUrl) {
       return;
@@ -91,16 +81,15 @@ export default function Home() {
     setVideoError(false);
 
     try {
-      const response =
-        await fetch(
-          `/api/tiktok?url=${encodeURIComponent(
-            cleanUrl
-          )}`,
-          {
-            method: "GET",
-            cache: "no-store",
-          }
-        );
+      const response = await fetch(
+        `/api/tiktok?url=${encodeURIComponent(
+          cleanUrl
+        )}`,
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
 
       const data: ApiResponse =
         await response.json();
@@ -117,21 +106,20 @@ export default function Home() {
     }
   }
 
-  const data =
-    result?.data;
+  const data = result?.data;
 
-  const resolvedVideoUrl =
-    data?.resolvedUrl
-      ? `/api/download?videoUrl=${encodeURIComponent(
-          data.resolvedUrl
+  const videoUrl =
+    data?.downloadUrl
+      ? `/api/download?url=${encodeURIComponent(
+          data.downloadUrl
         )}`
       : null;
 
-  const downloadVideoUrl =
-    data?.resolvedUrl
-      ? `/api/download?videoUrl=${encodeURIComponent(
-          data.resolvedUrl
-        )}&download=1`
+  const downloadUrl =
+    data?.downloadUrl
+      ? `/api/download?url=${encodeURIComponent(
+          data.downloadUrl
+        )}`
       : null;
 
   return (
@@ -158,9 +146,7 @@ export default function Home() {
 
           <form
             className="form"
-            onSubmit={
-              handleSubmit
-            }
+            onSubmit={handleSubmit}
           >
             <input
               className="input"
@@ -203,7 +189,7 @@ export default function Home() {
           {data && (
             <section className="result">
 
-              {resolvedVideoUrl && (
+              {videoUrl && (
                 <div className="video-wrapper">
 
                   <video
@@ -215,9 +201,7 @@ export default function Home() {
                       data.cover ||
                       undefined
                     }
-                    src={
-                      resolvedVideoUrl
-                    }
+                    src={videoUrl}
                     onError={() =>
                       setVideoError(
                         true
@@ -227,13 +211,11 @@ export default function Home() {
 
                   {videoError && (
                     <div className="video-error">
-                      Video gagal
-                      dimuat.
+                      Video gagal dimuat.
 
                       <br />
 
-                      Coba tekan
-                      tombol
+                      Coba tekan tombol
                       <strong>
                         {" "}
                         Download MP4
@@ -289,8 +271,7 @@ export default function Home() {
 
                     <strong>
                       {formatNumber(
-                        data.stats
-                          ?.views
+                        data.stats?.views
                       )}
                     </strong>
                   </div>
@@ -302,8 +283,7 @@ export default function Home() {
 
                     <strong>
                       {formatNumber(
-                        data.stats
-                          ?.likes
+                        data.stats?.likes
                       )}
                     </strong>
                   </div>
@@ -315,8 +295,7 @@ export default function Home() {
 
                     <strong>
                       {formatNumber(
-                        data.stats
-                          ?.comments
+                        data.stats?.comments
                       )}
                     </strong>
                   </div>
@@ -328,8 +307,7 @@ export default function Home() {
 
                     <strong>
                       {formatNumber(
-                        data.stats
-                          ?.shares
+                        data.stats?.shares
                       )}
                     </strong>
                   </div>
@@ -337,7 +315,7 @@ export default function Home() {
                 </div>
               </div>
 
-              {downloadVideoUrl && (
+              {downloadUrl && (
                 <div className="download">
 
                   <div>
@@ -352,9 +330,7 @@ export default function Home() {
 
                   <a
                     className="download-button"
-                    href={
-                      downloadVideoUrl
-                    }
+                    href={downloadUrl}
                   >
                     Download MP4
                   </a>
@@ -363,8 +339,7 @@ export default function Home() {
               )}
 
               {data.hashtags &&
-                data.hashtags.length >
-                  0 && (
+                data.hashtags.length > 0 && (
                   <div className="hashtags">
                     {data.hashtags.map(
                       (
@@ -389,10 +364,9 @@ export default function Home() {
 
               <div className="note">
                 Video diproses melalui
-                server Next.js. Setiap
-                pemutaran dan download
-                meminta URL video baru
-                dari provider.
+                server Next.js dan
+                download URL dari
+                provider.
               </div>
 
             </section>
