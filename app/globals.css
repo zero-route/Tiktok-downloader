@@ -138,7 +138,8 @@ a {
 
 .input:focus {
   border-color: rgba(254, 44, 85, 0.75);
-  box-shadow: 0 0 0 3px rgba(254, 44, 85, 0.1);
+  box-shadow:
+    0 0 0 3px rgba(254, 44, 85, 0.1);
 }
 
 .clear-button {
@@ -404,51 +405,112 @@ a {
   overflow-wrap: anywhere;
 }
 
-.photo-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.photo-card {
+.photo-carousel {
   position: relative;
   overflow: hidden;
+  margin-top: 16px;
   border: 1px solid rgb(var(--kb-border));
-  border-radius: 16px;
-  background: rgb(var(--kb-surface-2));
+  border-radius: 18px;
+  background: #0b0b0c;
+  touch-action: pan-y;
 }
 
-.photo-number {
-  position: absolute;
-  top: 9px;
-  left: 9px;
-  z-index: 2;
+.photo-track {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 27px;
-  height: 27px;
-  padding: 0 7px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.65);
-  color: white;
-  font-size: 11px;
-  font-weight: 800;
-  backdrop-filter: blur(8px);
+  width: 100%;
+  transition: transform 0.3s ease;
+  will-change: transform;
+}
+
+.photo-slide {
+  min-width: 100%;
+  width: 100%;
+  flex: 0 0 100%;
 }
 
 .photo-image-wrapper {
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 280px;
   background: #0b0b0c;
 }
 
-.photo-card img {
+.photo-slide img {
   display: block;
   width: 100%;
+  max-height: 680px;
   aspect-ratio: 1 / 1;
-  object-fit: cover;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.carousel-button {
+  position: absolute;
+  top: 50%;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  transform: translateY(-50%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  cursor: pointer;
+  font-size: 30px;
+  line-height: 1;
+  backdrop-filter: blur(8px);
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.carousel-button:hover {
+  background: rgba(254, 44, 85, 0.8);
+}
+
+.carousel-button:active {
+  transform: translateY(-50%) scale(0.94);
+}
+
+.carousel-prev {
+  left: 10px;
+}
+
+.carousel-next {
+  right: 10px;
+}
+
+.carousel-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 26px;
+  margin-top: 8px;
+}
+
+.carousel-dot {
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  transition:
+    width 0.2s ease,
+    background 0.2s ease;
+}
+
+.carousel-dot.active {
+  width: 18px;
+  background: rgb(var(--kb-pink));
 }
 
 .photo-download {
@@ -456,21 +518,23 @@ a {
   align-items: center;
   justify-content: center;
   gap: 7px;
-  min-height: 44px;
+  min-height: 46px;
+  margin-top: 8px;
   padding: 8px 10px;
-  border-top: 1px solid rgb(var(--kb-border));
-  color: rgb(var(--kb-text));
+  border-radius: 13px;
+  background: rgb(var(--kb-pink));
+  color: rgb(var(--kb-white));
   text-decoration: none;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   transition:
     background 0.2s ease,
-    color 0.2s ease;
+    transform 0.2s ease;
 }
 
 .photo-download:hover {
-  background: rgba(254, 44, 85, 0.08);
-  color: rgb(var(--kb-pink));
+  background: rgb(var(--kb-pink-dark));
+  transform: translateY(-1px);
 }
 
 .summary {
@@ -680,14 +744,12 @@ a {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .photo-grid {
-    grid-template-columns: 1fr;
+  .photo-image-wrapper {
+    min-height: 240px;
   }
 
-  .photo-card img {
-    aspect-ratio: auto;
-    max-height: 650px;
-    object-fit: contain;
+  .photo-slide img {
+    max-height: 600px;
   }
 }
 
@@ -734,5 +796,19 @@ a {
 
   .photo-count {
     font-size: 10px;
+  }
+
+  .carousel-button {
+    width: 34px;
+    height: 34px;
+    font-size: 26px;
+  }
+
+  .carousel-prev {
+    left: 7px;
+  }
+
+  .carousel-next {
+    right: 7px;
   }
 }
