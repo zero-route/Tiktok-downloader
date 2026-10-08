@@ -1,112 +1,95 @@
 const RAPIDAPI_HOST =
-  process.env.RAPIDAPI_HOST || "social-media-video-downloader.p.rapidapi.com";
+  process.env.RAPIDAPI_HOST ||
+  "tiktok-video-downloader-api.p.rapidapi.com";
 
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
 
-export type ExtractedMedia = {
-  url: string;
-  type: "video" | "image" | "audio" | "other";
-  label: string;
+export type TikTokData = {
+  id?: string;
+  author?: {
+    username?: string;
+    nickname?: string;
+    verified?: boolean;
+    signature?: string;
+    avatar?: string;
+  };
+  description?: string;
+  cover?: string;
+  stats?: {
+    likes?: number;
+    comments?: number;
+    views?: number;
+    shares?: number;
+    saves?: number;
+  };
+  hashtags?: Array<{
+    hashtagId?: string;
+    hashtagName?: string;
+  }>;
+  locationCreated?: string;
+  downloadUrl?: string;
 };
 
-export type TikTokResult = {
-  raw: unknown;
-  media: ExtractedMedia[];
-};
-
-function classifyUrl(url: string): ExtractedMedia["type"] {
-  const value = url.toLowerCase();
-
-  if (/\.(mp4|m4v|mov|webm)(\?|#|$)/i.test(value) || value.includes("video")) {
-    return "video";
-  }
-
-  if (/\.(jpg|jpeg|png|webp|gif)(\?|#|$)/i.test(value) || value.includes("image")) {
-    return "image";
-  }
-
-  if (/\.(mp3|m4a|aac|wav|ogg)(\?|#|$)/i.test(value) || value.includes("audio") || value.includes("music")) {
-    return "audio";
-  }
-
-  return "other";
-}
-
-function collectUrls(value: unknown, found: Set<string>, depth = 0): void {
-  if (depth > 8 || value == null) return;
-
-  if (typeof value === "string") {
-    if (/^https?:\/\//i.test(value)) {
-      found.add(value);
-    }
-    return;
-  }
-
-  if (Array.isArray(value)) {
-    for (const item of value) collectUrls(item, found, depth + 1);
-    return;
-  }
-
-  if (typeof value === "object") {
-    for (const item of Object.values(value as Record<string, unknown>)) {
-      collectUrls(item, found, depth + 1);
-    }
-  }
-}
-
-export async function getTikTokDetails(url: string): Promise<TikTokResult> {
+export async function fetchTikTokMedia(
+  videoUrl: string
+): Promise<TikTokData> {
   if (!RAPIDAPI_KEY) {
-    throw new Error("RAPIDAPI_KEY belum dikonfigurasi di environment Vercel.");
+    throw new Error(
+      "RAPIDAPI_KEY belum dikonfigurasi di environment."
+    );
   }
 
   const endpoint =
-    `https://${RAPIDAPI_HOST}/tiktok/v3/post/details?url=${encodeURIComponent(url)}`;
+    `https://${RAPIDAPI_HOST}/media?videoUrl=${encodeURIComponent(
+      videoUrl
+    )}`;
 
   const response = await fetch(endpoint, {
     method: "GET",
     headers: {
       "x-rapidapi-key": RAPIDAPI_KEY,
       "x-rapidapi-host": RAPIDAPI_HOST,
-      "accept": "application/json"
+      Accept: "application/json",
     },
-    cache: "no-store"
+    cache: "no-store",
   });
 
   const text = await response.text();
 
   let data: unknown;
+
   try {
     data = JSON.parse(text);
   } catch {
     throw new Error(
-      response.ok
-        ? "RapidAPI mengembalikan response yang bukan JSON."
-        : `RapidAPI error ${response.status}: ${text.slice(0, 300)}`
+      `RapidAPI mengembalikan response bukan JSON. HTTP ${response.status}`
     );
   }
 
   if (!response.ok) {
-    const message =
-      typeof data === "object" && data !== null
-        ? JSON.stringify(data).slice(0, 500)
-        : `HTTP ${response.status}`;
-
-    throw new Error(`RapidAPI error ${response.status}: ${message}`);
+    throw new Error(
+      `RapidAPI HTTP ${response.status}: ${JSON.stringify(data).slice(
+        0,
+        500
+      )}`
+    );
   }
 
-  const urls = new Set<string>();
-  collectUrls(data, urls);
+  if (
+    typeof data !== "object" ||
+    data === null ||
+    Array.isArray(data)
+  ) {
+    throw new Error("Format response RapidAPI tidak valid.");
+  }
 
-  const media = Array.from(urls)
-    .map((mediaUrl) => ({
-      url: mediaUrl,
-      type: classifyUrl(mediaUrl),
-      label: classifyUrl(mediaUrl)
-    }))
-    .filter((item) => item.type !== "other");
+  const result = data as TikTokData;
 
-  return {
-    raw: data,
-    media
-  };
+  if (!result.downloadUrl) {
+    throw new Error(
+      "RapidAPI berhasil merespons tetapi downloadUrl tidak ditemukan."
+    );
+  }
+
+  return result;
 }

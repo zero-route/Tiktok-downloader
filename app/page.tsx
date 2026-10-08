@@ -1,36 +1,65 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useState } from "react";
 
-type Media = {
-  url: string;
-  type: "video" | "image" | "audio" | "other";
-  label: string;
+type TikTokData = {
+  id?: string;
+
+  author?: {
+    username?: string;
+    nickname?: string;
+    verified?: boolean;
+    avatar?: string;
+  };
+
+  description?: string;
+
+  cover?: string;
+
+  stats?: {
+    likes?: number;
+    comments?: number;
+    views?: number;
+    shares?: number;
+    saves?: number;
+  };
+
+  downloadUrl?: string;
 };
 
 type ApiResponse = {
   ok: boolean;
   error?: string;
-  media?: Media[];
-  data?: unknown;
+  data?: TikTokData;
 };
+
+function formatNumber(value?: number) {
+  if (value === undefined || value === null) {
+    return "-";
+  }
+
+  return new Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
+}
 
 export default function Home() {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<ApiResponse | null>(null);
+  const [result, setResult] =
+    useState<ApiResponse | null>(null);
 
-  const media = useMemo(() => {
-    return (result?.media || []).filter(
-      (item) => item.type === "video" || item.type === "image"
-    );
-  }, [result]);
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
 
     const cleanUrl = url.trim();
-    if (!cleanUrl) return;
+
+    if (!cleanUrl) {
+      return;
+    }
 
     setLoading(true);
     setResult(null);
@@ -38,106 +67,219 @@ export default function Home() {
     try {
       const response = await fetch(
         `/api/tiktok?url=${encodeURIComponent(cleanUrl)}`,
-        { method: "GET" }
+        {
+          method: "GET",
+        }
       );
 
-      const data: ApiResponse = await response.json();
+      const data: ApiResponse =
+        await response.json();
+
       setResult(data);
     } catch {
       setResult({
         ok: false,
-        error: "Tidak dapat terhubung ke server."
+        error:
+          "Tidak dapat terhubung ke server.",
       });
     } finally {
       setLoading(false);
     }
   }
 
+  const data = result?.data;
+
   return (
     <main className="page">
       <div className="shell">
+
         <section className="hero">
-          <div className="badge">TikTok Downloader · RapidAPI</div>
-          <h1>Download TikTok</h1>
+          <div className="badge">
+            RapidAPI · TikTok Downloader
+          </div>
+
+          <h1>
+            TikTok Downloader
+          </h1>
+
           <p>
-            Tempel URL TikTok untuk mengambil media video atau gambar yang
-            tersedia dari API.
+            Download video TikTok dalam format
+            MP4 dengan cepat.
           </p>
         </section>
 
         <section className="card">
-          <form className="form" onSubmit={handleSubmit}>
+
+          <form
+            className="form"
+            onSubmit={handleSubmit}
+          >
             <input
               className="input"
-              value={url}
-              onChange={(event) => setUrl(event.target.value)}
-              placeholder="https://www.tiktok.com/@user/video/..."
               type="url"
+              value={url}
               required
+              onChange={(event) =>
+                setUrl(event.target.value)
+              }
+              placeholder="https://www.tiktok.com/@user/video/..."
             />
-            <button className="button" disabled={loading}>
-              {loading ? "Processing..." : "Download"}
+
+            <button
+              className="button"
+              type="submit"
+              disabled={loading}
+            >
+              {loading
+                ? "Processing..."
+                : "Get Video"}
             </button>
           </form>
 
           {loading && (
-            <div className="status">Menghubungi TikTok API...</div>
-          )}
-
-          {result?.error && <div className="error">{result.error}</div>}
-
-          {result?.ok && media.length === 0 && (
             <div className="status">
-              API berhasil merespons, tetapi tidak ada URL video/gambar yang
-              berhasil dikenali dari response.
+              Mengambil video dari RapidAPI...
             </div>
           )}
 
-          {media.length > 0 && (
-            <div className="result">
-              {media[0].type === "video" ? (
-                <video className="preview" controls preload="metadata">
-                  <source src={media[0].url} />
-                </video>
-              ) : (
-                <img
+          {result?.error && (
+            <div className="error">
+              {result.error}
+            </div>
+          )}
+
+          {data && (
+            <section className="result">
+
+              {data.downloadUrl && (
+                <video
                   className="preview"
-                  src={media[0].url}
-                  alt="TikTok preview"
+                  controls
+                  playsInline
+                  preload="metadata"
+                  src={data.downloadUrl}
                 />
               )}
 
-              <div className="meta">
-                <span>{media.length} media ditemukan</span>
-                <span>Tautan CDN dari API</span>
+              <div className="info">
+
+                {data.author && (
+                  <div className="author">
+                    {data.author.nickname ||
+                      data.author.username ||
+                      "TikTok User"}
+
+                    {data.author.verified && (
+                      <span>
+                        {" "}
+                        ✓
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {data.description && (
+                  <p className="description">
+                    {data.description}
+                  </p>
+                )}
+
+                <div className="stats">
+
+                  <div className="stat">
+                    <small>
+                      Views
+                    </small>
+
+                    <strong>
+                      {formatNumber(
+                        data.stats?.views
+                      )}
+                    </strong>
+                  </div>
+
+                  <div className="stat">
+                    <small>
+                      Likes
+                    </small>
+
+                    <strong>
+                      {formatNumber(
+                        data.stats?.likes
+                      )}
+                    </strong>
+                  </div>
+
+                  <div className="stat">
+                    <small>
+                      Comments
+                    </small>
+
+                    <strong>
+                      {formatNumber(
+                        data.stats?.comments
+                      )}
+                    </strong>
+                  </div>
+
+                  <div className="stat">
+                    <small>
+                      Shares
+                    </small>
+
+                    <strong>
+                      {formatNumber(
+                        data.stats?.shares
+                      )}
+                    </strong>
+                  </div>
+
+                </div>
               </div>
 
-              <div className="downloads">
-                {media.map((item, index) => (
-                  <div className="download" key={`${item.url}-${index}`}>
-                    <div>
-                      <div>{item.type === "video" ? "Video" : "Image"} {index + 1}</div>
-                      <span>{item.type.toUpperCase()}</span>
+              {data.downloadUrl && (
+                <div className="download">
+
+                  <div>
+                    <div className="download-title">
+                      Video MP4
                     </div>
 
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      download
-                    >
-                      Download
-                    </a>
+                    <div className="download-subtitle">
+                      TikTok video
+                    </div>
                   </div>
-                ))}
+
+                  <a
+                    href={`/api/download?url=${encodeURIComponent(
+                      data.downloadUrl
+                    )}`}
+                  >
+                    Download MP4
+                  </a>
+
+                </div>
+              )}
+
+              <div className="note">
+                Video diambil menggunakan
+                endpoint RapidAPI
+                <code> /media </code>
+                dan
+                <code> downloadUrl </code>
+                dari response API.
               </div>
-            </div>
+
+            </section>
           )}
+
         </section>
 
         <div className="footer">
-          Gunakan hanya untuk konten yang kamu berhak unduh.
+          Gunakan hanya untuk konten yang
+          kamu berhak unduh.
         </div>
+
       </div>
     </main>
   );

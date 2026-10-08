@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTikTokDetails } from "@/lib/rapidapi";
-
+import { fetchTikTokMedia } from "@/lib/rapidapi";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function isTikTokUrl(value: string): boolean {
   try {
-    const url = new URL(value);
-    const hostname = url.hostname.toLowerCase();
+    const parsed = new URL(value);
+    const hostname = parsed.hostname.toLowerCase();
+
     return (
       hostname === "tiktok.com" ||
       hostname.endsWith(".tiktok.com")
@@ -23,32 +23,49 @@ export async function GET(request: NextRequest) {
 
   if (!url) {
     return NextResponse.json(
-      { ok: false, error: "Parameter url wajib diisi." },
+      {
+        ok: false,
+        error: "Parameter url wajib diisi.",
+      },
       { status: 400 }
     );
   }
 
   if (!isTikTokUrl(url)) {
     return NextResponse.json(
-      { ok: false, error: "Masukkan URL TikTok yang valid." },
+      {
+        ok: false,
+        error: "URL TikTok tidak valid.",
+      },
       { status: 400 }
     );
   }
 
   try {
-    const result = await getTikTokDetails(url);
+    const data = await fetchTikTokMedia(url);
 
     return NextResponse.json({
       ok: true,
-      media: result.media,
-      data: result.raw
+      data: {
+        id: data.id ?? null,
+        author: data.author ?? null,
+        description: data.description ?? null,
+        cover: data.cover ?? null,
+        stats: data.stats ?? null,
+        hashtags: data.hashtags ?? [],
+        locationCreated: data.locationCreated ?? null,
+        downloadUrl: data.downloadUrl,
+      },
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Terjadi kesalahan pada server.";
-
     return NextResponse.json(
-      { ok: false, error: message },
+      {
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Terjadi kesalahan pada server.",
+      },
       { status: 502 }
     );
   }
