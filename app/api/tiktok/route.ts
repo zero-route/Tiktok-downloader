@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTikTokDetails } from "../../../lib/rapidapi";
+import { getTikTokDetails } from "@/app/lib/rapidapi";
+
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
