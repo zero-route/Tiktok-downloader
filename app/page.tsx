@@ -1,6 +1,10 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import {
+  FormEvent,
+  useEffect,
+  useState,
+} from "react";
 
 type TikTokPhoto = {
   downloadUrl: string;
@@ -48,28 +52,40 @@ type ApiResponse = {
 };
 
 function formatNumber(value?: number) {
-  if (value === undefined || value === null) {
+  if (
+    value === undefined ||
+    value === null
+  ) {
     return "-";
   }
 
-  return new Intl.NumberFormat("id-ID", {
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
+  return new Intl.NumberFormat(
+    "id-ID",
+    {
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }
+  ).format(value);
 }
 
 export default function Home() {
   const [url, setUrl] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<ApiResponse | null>(null);
-  const [videoError, setVideoError] = useState(false);
-  const [photoIndex, setPhotoIndex] = useState(0);
+  const [loading, setLoading] =
+    useState(false);
+  const [result, setResult] =
+    useState<ApiResponse | null>(null);
+  const [videoError, setVideoError] =
+    useState(false);
+  const [photoIndex, setPhotoIndex] =
+    useState(0);
 
   useEffect(() => {
     setPhotoIndex(0);
   }, [result]);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
 
     const cleanUrl = url.trim();
@@ -95,18 +111,23 @@ export default function Home() {
             cleanUrl
           )}`;
 
-      const response = await fetch(endpoint, {
-        method: "GET",
-        cache: "no-store",
-      });
+      const response = await fetch(
+        endpoint,
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
 
-      const data: ApiResponse = await response.json();
+      const data: ApiResponse =
+        await response.json();
 
       setResult(data);
     } catch {
       setResult({
         ok: false,
-        error: "Tidak dapat terhubung ke server.",
+        error:
+          "Tidak dapat terhubung ke server.",
       });
     } finally {
       setLoading(false);
@@ -131,7 +152,8 @@ export default function Home() {
     }
 
     setPhotoIndex((current) =>
-      current === data.photos!.length - 1
+      current ===
+      data.photos!.length - 1
         ? 0
         : current + 1
     );
@@ -162,6 +184,16 @@ export default function Home() {
       )}`
     : mediaUrl;
 
+  const photoDownloadHref =
+    activePhoto
+      ? `/api/tiktok-photo-download?url=${encodeURIComponent(
+          activePhoto.downloadUrl
+        )}&username=${encodeURIComponent(
+          data?.author?.username ||
+            "tiktok"
+        )}`
+      : null;
+
   return (
     <main className="page">
       <div className="shell">
@@ -173,8 +205,9 @@ export default function Home() {
           <h1>TikTok Downloader</h1>
 
           <p>
-            Unduh video dan slideshow TikTok
-            dengan cepat dan mudah.
+            Unduh video dan slideshow
+            TikTok dengan cepat dan
+            mudah.
           </p>
         </section>
 
@@ -201,7 +234,9 @@ export default function Home() {
                 <button
                   type="button"
                   className="clear-button"
-                  onClick={() => setUrl("")}
+                  onClick={() =>
+                    setUrl("")
+                  }
                   aria-label="Hapus URL"
                 >
                   ×
@@ -221,8 +256,9 @@ export default function Home() {
           </form>
 
           <div className="copyright-note">
-            Pengingat: Hormati karya dan hak
-            kekayaan intelektual kreator.
+            Pengingat: Hormati karya
+            dan hak kekayaan
+            intelektual kreator.
           </div>
 
           {loading && (
@@ -230,8 +266,8 @@ export default function Home() {
               <div className="loading-spinner" />
 
               <span>
-                Mengambil dan memproses media
-                TikTok...
+                Mengambil dan memproses
+                media TikTok...
               </span>
             </div>
           )}
@@ -264,11 +300,14 @@ export default function Home() {
                           Slideshow TikTok
                         </span>
 
-                        <h2>Foto Video</h2>
+                        <h2>
+                          Foto Video
+                        </h2>
                       </div>
 
                       <div className="photo-count">
-                        {photoIndex + 1} /{" "}
+                        {photoIndex + 1}{" "}
+                        /{" "}
                         {data.photos.length}
                       </div>
                     </div>
@@ -289,7 +328,10 @@ export default function Home() {
                         }}
                       >
                         {data.photos.map(
-                          (photo, index) => (
+                          (
+                            photo,
+                            index
+                          ) => (
                             <div
                               className="photo-slide"
                               key={`${photo.downloadUrl}-${index}`}
@@ -302,7 +344,9 @@ export default function Home() {
                                   alt={`Foto slideshow ${
                                     index + 1
                                   }`}
-                                  draggable={false}
+                                  draggable={
+                                    false
+                                  }
                                 />
                               </div>
                             </div>
@@ -310,7 +354,8 @@ export default function Home() {
                         )}
                       </div>
 
-                      {data.photos.length > 1 && (
+                      {data.photos.length >
+                        1 && (
                         <>
                           <button
                             type="button"
@@ -337,7 +382,8 @@ export default function Home() {
                       )}
                     </div>
 
-                    {data.photos.length > 1 && (
+                    {data.photos.length >
+                      1 && (
                       <div className="carousel-dots">
                         {data.photos.map(
                           (_, index) => (
@@ -345,7 +391,8 @@ export default function Home() {
                               type="button"
                               key={index}
                               className={`carousel-dot ${
-                                index === photoIndex
+                                index ===
+                                photoIndex
                                   ? "active"
                                   : ""
                               }`}
@@ -363,24 +410,24 @@ export default function Home() {
                       </div>
                     )}
 
-                    {activePhoto && (
-                      <a
-                        className="photo-download"
-                        href={
-                          activePhoto.downloadUrl
-                        }
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <span className="download-icon">
-                          ↓
-                        </span>
+                    {activePhoto &&
+                      photoDownloadHref && (
+                        <a
+                          className="photo-download"
+                          href={
+                            photoDownloadHref
+                          }
+                          download
+                        >
+                          <span className="download-icon">
+                            ↓
+                          </span>
 
-                        <span>
-                          Download Foto
-                        </span>
-                      </a>
-                    )}
+                          <span>
+                            Download Foto
+                          </span>
+                        </a>
+                      )}
                   </section>
                 )}
 
@@ -410,7 +457,8 @@ export default function Home() {
                       {videoError && (
                         <div className="video-error">
                           <strong>
-                            Video gagal dimuat
+                            Video gagal
+                            dimuat
                           </strong>
 
                           <span>
@@ -462,13 +510,16 @@ export default function Home() {
 
                 <div className="creator">
                   <div className="creator-avatar">
-                    {data.author?.avatar ? (
+                    {data.author
+                      ?.avatar ? (
                       <img
                         src={
-                          data.author.avatar
+                          data.author
+                            .avatar
                         }
                         alt={
-                          data.author.nickname ||
+                          data.author
+                            .nickname ||
                           "Creator"
                         }
                       />
@@ -487,8 +538,10 @@ export default function Home() {
 
                   <div className="creator-info">
                     <div className="creator-name">
-                      {data.author?.nickname ||
-                        data.author?.username ||
+                      {data.author
+                        ?.nickname ||
+                        data.author
+                          ?.username ||
                         "Nama kreator"}
 
                       {data.author
@@ -519,11 +572,14 @@ export default function Home() {
                     </span>
 
                     <div>
-                      <small>Views</small>
+                      <small>
+                        Views
+                      </small>
 
                       <strong>
                         {formatNumber(
-                          data.stats?.views
+                          data.stats
+                            ?.views
                         )}
                       </strong>
                     </div>
@@ -535,11 +591,14 @@ export default function Home() {
                     </span>
 
                     <div>
-                      <small>Likes</small>
+                      <small>
+                        Likes
+                      </small>
 
                       <strong>
                         {formatNumber(
-                          data.stats?.likes
+                          data.stats
+                            ?.likes
                         )}
                       </strong>
                     </div>
@@ -557,7 +616,8 @@ export default function Home() {
 
                       <strong>
                         {formatNumber(
-                          data.stats?.comments
+                          data.stats
+                            ?.comments
                         )}
                       </strong>
                     </div>
@@ -575,7 +635,8 @@ export default function Home() {
 
                       <strong>
                         {formatNumber(
-                          data.stats?.shares
+                          data.stats
+                            ?.shares
                         )}
                       </strong>
                     </div>
@@ -622,9 +683,9 @@ export default function Home() {
               </div>
 
               <div className="processing-note">
-                Media diproses melalui server
-                Next.js, RapidAPI, dan
-                provider download.
+                Media diproses melalui
+                server Next.js, RapidAPI,
+                dan provider download.
               </div>
             </section>
           )}
