@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { fetchTikTokMedia } from "@/lib/rapidapi";
 
 export const runtime = "nodejs";
@@ -77,8 +78,9 @@ function sanitizeUsername(username: string) {
 function getDownloadFilename(tiktokUrl: string) {
   const username = getTikTokUsername(tiktokUrl);
   const safeUsername = sanitizeUsername(username);
+  const uuid = randomUUID();
 
-  return `Vidzly-${safeUsername}.mp4`;
+  return `Vidzly_${safeUsername}__${uuid}__.mp4`;
 }
 
 async function getFreshDownloadUrl(tiktokUrl: string) {
