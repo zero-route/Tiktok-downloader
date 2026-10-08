@@ -2,20 +2,27 @@
 
 import { FormEvent, useState } from "react";
 
+type TikTokPhoto = {
+  downloadUrl: string;
+  fileName?: string;
+  contentType?: string;
+  fileSizeBytes?: number | null;
+  imageWidth?: number | null;
+  imageHeight?: number | null;
+  photoIndex?: number;
+  photoCount?: number;
+};
+
 type TikTokData = {
   id?: string;
-
   author?: {
     username?: string;
     nickname?: string;
     verified?: boolean;
     avatar?: string;
   };
-
   description?: string;
-
   cover?: string;
-
   stats?: {
     likes?: number;
     comments?: number;
@@ -23,23 +30,21 @@ type TikTokData = {
     shares?: number;
     saves?: number;
   };
-
   hashtags?: Array<{
     hashtagId?: string;
     hashtagName?: string;
   }>;
-
   downloadUrl?: string;
-
   originalUrl?: string;
-
   resolvedUrl?: string;
+  photos?: TikTokPhoto[];
 };
 
 type ApiResponse = {
   ok: boolean;
   error?: string;
   data?: TikTokData;
+  type?: "video" | "photo";
 };
 
 function formatNumber(value?: number) {
@@ -59,9 +64,7 @@ export default function Home() {
   const [result, setResult] = useState<ApiResponse | null>(null);
   const [videoError, setVideoError] = useState(false);
 
-  async function handleSubmit(
-    event: FormEvent<HTMLFormElement>
-  ) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const cleanUrl = url.trim();
@@ -75,13 +78,16 @@ export default function Home() {
     setVideoError(false);
 
     try {
-      const response = await fetch(
-        `/api/tiktok?url=${encodeURIComponent(cleanUrl)}`,
-        {
-          method: "GET",
-          cache: "no-store",
-        }
-      );
+      const isPhotoPost = /\/photo\//i.test(cleanUrl);
+
+      const endpoint = isPhotoPost
+        ? `/api/tiktok-slideshow?url=${encodeURIComponent(cleanUrl)}`
+        : `/api/tiktok?url=${encodeURIComponent(cleanUrl)}`;
+
+      const response = await fetch(endpoint, {
+        method: "GET",
+        cache: "no-store",
+      });
 
       const data: ApiResponse = await response.json();
 
@@ -98,49 +104,43 @@ export default function Home() {
 
   const data = result?.data;
 
-  // PREVIEW: memakai link dari pencarian awal.
+  const isPhotoResult =
+    result?.type === "photo" &&
+    Boolean(data?.photos && data.photos.length > 0);
+
   const mediaUrl = data?.downloadUrl
-    ? `/api/download?url=${encodeURIComponent(
-        data.downloadUrl
-      )}`
+    ? `/api/download?url=${encodeURIComponent(data.downloadUrl)}`
     : null;
 
-  // DOWNLOAD: server meminta link/sesi BARU ke RapidAPI saat tombol
-  // ditekan, jadi tidak kena "Invalid Session".
   const downloadHref = data?.resolvedUrl
-    ? `/api/download?tiktok=${encodeURIComponent(
-        data.resolvedUrl
-      )}`
+    ? `/api/download?tiktok=${encodeURIComponent(data.resolvedUrl)}`
     : mediaUrl;
 
   return (
     <main className="page">
       <div className="shell">
-
         <section className="hero">
+          <div className="hero-badge">Vidzly</div>
+
           <h1>TikTok Downloader</h1>
 
           <p>
-            Unduh video TikTok dengan cepat dan mudah.
+            Unduh video dan slideshow TikTok dengan cepat dan mudah.
           </p>
         </section>
 
         <section className="card">
-
-          <form
-            className="form"
-            onSubmit={handleSubmit}
-          >
+          <form className="form" onSubmit={handleSubmit}>
             <div className="input-wrapper">
               <input
                 className="input"
                 type="url"
                 value={url}
                 required
-                onChange={(event) =>
-                  setUrl(event.target.value)
-                }
+                onChange={(event) => setUrl(event.target.value)}
                 placeholder="Masukkan tautan media..."
+                autoComplete="off"
+                spellCheck={false}
               />
 
               {url && (
@@ -165,15 +165,15 @@ export default function Home() {
           </form>
 
           <div className="copyright-note">
-            Pengingat: Hormati karya dan hak kekayaan
-            intelektual kreator.
+            Pengingat: Hormati karya dan hak kekayaan intelektual kreator.
           </div>
 
           {loading && (
             <div className="status">
               <div className="loading-spinner" />
+
               <span>
-                Mengambil dan memproses video TikTok...
+                Mengambil dan memproses media TikTok...
               </span>
             </div>
           )}
@@ -182,8 +182,9 @@ export default function Home() {
             <div className="error">
               <div className="error-icon">!</div>
 
-              <div>
-                <strong>Gagal memproses video</strong>
+              <div className="error-content">
+                <strong>Gagal memproses media</strong>
+
                 <p>{result.error}</p>
               </div>
             </div>
@@ -191,11 +192,69 @@ export default function Home() {
 
           {data && (
             <section className="result">
+              {isPhotoResult && data.photos && (
+                <section className="photo-section">
+                  <div className="section-header">
+                    <div>
+                      <span className="section-label">
+                        Slideshow TikTok
+                      </span>
+
+                      <h2>Foto Video</h2>
+                    </div>
+
+                    <div className="photo-count">
+                      {data.photos.length} foto
+                    </div>
+                  </div>
+
+                  {data.description && (
+                    <div className="photo-caption">
+                      {data.description}
+                    </div>
+                  )}
+
+                  <div className="photo-grid">
+                    {data.photos.map((photo, index) => (
+                      <article
+                        className="photo-card"
+                        key={`${photo.downloadUrl}-${index}`}
+                      >
+                        <div className="photo-number">
+                          {photo.photoIndex || index + 1}
+                        </div>
+
+                        <div className="photo-image-wrapper">
+                          <img
+                            src={photo.downloadUrl}
+                            alt={`Foto slideshow ${
+                              photo.photoIndex || index + 1
+                            }`}
+                            loading="lazy"
+                          />
+                        </div>
+
+                        <a
+                          className="photo-download"
+                          href={photo.downloadUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <span className="download-icon">
+                            ↓
+                          </span>
+
+                          <span>Download Foto</span>
+                        </a>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              )}
 
               {mediaUrl && (
                 <>
                   <div className="video-section">
-
                     <div className="section-label">
                       Video Utama
                     </div>
@@ -206,13 +265,9 @@ export default function Home() {
                         controls
                         playsInline
                         preload="none"
-                        poster={
-                          data.cover || undefined
-                        }
+                        poster={data.cover || undefined}
                         src={mediaUrl}
-                        onError={() =>
-                          setVideoError(true)
-                        }
+                        onError={() => setVideoError(true)}
                       />
 
                       {videoError && (
@@ -222,17 +277,14 @@ export default function Home() {
                           </strong>
 
                           <span>
-                            Gunakan tombol download
-                            di bawah.
+                            Gunakan tombol download di bawah.
                           </span>
                         </div>
                       )}
                     </div>
-
                   </div>
 
                   <div className="download-area">
-
                     <div className="download-line" />
 
                     <a
@@ -243,35 +295,27 @@ export default function Home() {
                         ↓
                       </span>
 
-                      <span>
-                        Download VT
-                      </span>
+                      <span>Download VT</span>
                     </a>
 
                     <div className="download-line" />
-
                   </div>
                 </>
               )}
 
               <div className="summary">
-
                 <div className="summary-heading">
                   <div>
                     <span className="section-label">
                       Rangkuman VT
                     </span>
 
-                    <h2>
-                      Informasi Video
-                    </h2>
+                    <h2>Informasi Video</h2>
                   </div>
                 </div>
 
                 <div className="creator">
-
                   <div className="creator-avatar">
-
                     {data.author?.avatar ? (
                       <img
                         src={data.author.avatar}
@@ -282,16 +326,16 @@ export default function Home() {
                       />
                     ) : (
                       <span>
-                        {(data.author?.nickname ||
+                        {(
+                          data.author?.nickname ||
                           data.author?.username ||
-                          "T")[0].toUpperCase()}
+                          "T"
+                        )[0].toUpperCase()}
                       </span>
                     )}
-
                   </div>
 
                   <div className="creator-info">
-
                     <div className="creator-name">
                       {data.author?.nickname ||
                         data.author?.username ||
@@ -309,13 +353,10 @@ export default function Home() {
                         @{data.author.username}
                       </div>
                     )}
-
                   </div>
-
                 </div>
 
                 <div className="stats">
-
                   <div className="stat">
                     <span className="stat-icon">
                       ▶
@@ -323,6 +364,7 @@ export default function Home() {
 
                     <div>
                       <small>Views</small>
+
                       <strong>
                         {formatNumber(
                           data.stats?.views
@@ -338,6 +380,7 @@ export default function Home() {
 
                     <div>
                       <small>Likes</small>
+
                       <strong>
                         {formatNumber(
                           data.stats?.likes
@@ -353,6 +396,7 @@ export default function Home() {
 
                     <div>
                       <small>Komentar</small>
+
                       <strong>
                         {formatNumber(
                           data.stats?.comments
@@ -368,6 +412,7 @@ export default function Home() {
 
                     <div>
                       <small>Repost</small>
+
                       <strong>
                         {formatNumber(
                           data.stats?.shares
@@ -375,27 +420,21 @@ export default function Home() {
                       </strong>
                     </div>
                   </div>
-
                 </div>
 
-                {data.description && (
+                {data.description && !isPhotoResult && (
                   <div className="description-box">
-
                     <div className="description-title">
                       Caption
                     </div>
 
-                    <p>
-                      {data.description}
-                    </p>
-
+                    <p>{data.description}</p>
                   </div>
                 )}
 
                 {data.hashtags &&
                   data.hashtags.length > 0 && (
                     <div className="hashtags">
-
                       {data.hashtags.map(
                         (hashtag, index) => (
                           <span
@@ -404,34 +443,25 @@ export default function Home() {
                               index
                             }
                           >
-                            #
-                            {
-                              hashtag.hashtagName
-                            }
+                            #{hashtag.hashtagName}
                           </span>
                         )
                       )}
-
                     </div>
                   )}
-
               </div>
 
               <div className="processing-note">
-                Video diproses melalui server Next.js
-                dan provider download.
+                Media diproses melalui server Next.js,
+                RapidAPI, dan provider download.
               </div>
-
             </section>
           )}
-
         </section>
 
         <footer className="footer">
-          Gunakan hanya untuk konten yang kamu
-          berhak unduh.
+          Gunakan hanya untuk konten yang kamu berhak unduh.
         </footer>
-
       </div>
     </main>
   );
