@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 type TikTokPhoto = {
   downloadUrl: string;
@@ -63,6 +63,11 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ApiResponse | null>(null);
   const [videoError, setVideoError] = useState(false);
+  const [photoIndex, setPhotoIndex] = useState(0);
+
+  useEffect(() => {
+    setPhotoIndex(0);
+  }, [result]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -76,13 +81,19 @@ export default function Home() {
     setLoading(true);
     setResult(null);
     setVideoError(false);
+    setPhotoIndex(0);
 
     try {
-      const isPhotoPost = /\/photo\//i.test(cleanUrl);
+      const isPhotoPost =
+        /\/photo\//i.test(cleanUrl);
 
       const endpoint = isPhotoPost
-        ? `/api/tiktok-slideshow?url=${encodeURIComponent(cleanUrl)}`
-        : `/api/tiktok?url=${encodeURIComponent(cleanUrl)}`;
+        ? `/api/tiktok-slideshow?url=${encodeURIComponent(
+            cleanUrl
+          )}`
+        : `/api/tiktok?url=${encodeURIComponent(
+            cleanUrl
+          )}`;
 
       const response = await fetch(endpoint, {
         method: "GET",
@@ -102,42 +113,85 @@ export default function Home() {
     }
   }
 
+  function showPreviousPhoto() {
+    if (!data?.photos?.length) {
+      return;
+    }
+
+    setPhotoIndex((current) =>
+      current === 0
+        ? data.photos!.length - 1
+        : current - 1
+    );
+  }
+
+  function showNextPhoto() {
+    if (!data?.photos?.length) {
+      return;
+    }
+
+    setPhotoIndex((current) =>
+      current === data.photos!.length - 1
+        ? 0
+        : current + 1
+    );
+  }
+
   const data = result?.data;
 
   const isPhotoResult =
     result?.type === "photo" &&
-    Boolean(data?.photos && data.photos.length > 0);
+    Boolean(
+      data?.photos &&
+        data.photos.length > 0
+    );
+
+  const activePhoto =
+    data?.photos?.[photoIndex] ||
+    data?.photos?.[0];
 
   const mediaUrl = data?.downloadUrl
-    ? `/api/download?url=${encodeURIComponent(data.downloadUrl)}`
+    ? `/api/download?url=${encodeURIComponent(
+        data.downloadUrl
+      )}`
     : null;
 
   const downloadHref = data?.resolvedUrl
-    ? `/api/download?tiktok=${encodeURIComponent(data.resolvedUrl)}`
+    ? `/api/download?tiktok=${encodeURIComponent(
+        data.resolvedUrl
+      )}`
     : mediaUrl;
 
   return (
     <main className="page">
       <div className="shell">
         <section className="hero">
-          <div className="hero-badge">Vidzly</div>
+          <div className="hero-badge">
+            Vidzly
+          </div>
 
           <h1>TikTok Downloader</h1>
 
           <p>
-            Unduh video dan slideshow TikTok dengan cepat dan mudah.
+            Unduh video dan slideshow TikTok
+            dengan cepat dan mudah.
           </p>
         </section>
 
         <section className="card">
-          <form className="form" onSubmit={handleSubmit}>
+          <form
+            className="form"
+            onSubmit={handleSubmit}
+          >
             <div className="input-wrapper">
               <input
                 className="input"
                 type="url"
                 value={url}
                 required
-                onChange={(event) => setUrl(event.target.value)}
+                onChange={(event) =>
+                  setUrl(event.target.value)
+                }
                 placeholder="Masukkan tautan media..."
                 autoComplete="off"
                 spellCheck={false}
@@ -160,12 +214,15 @@ export default function Home() {
               type="submit"
               disabled={loading}
             >
-              {loading ? "Memproses..." : "Unduh"}
+              {loading
+                ? "Memproses..."
+                : "Unduh"}
             </button>
           </form>
 
           <div className="copyright-note">
-            Pengingat: Hormati karya dan hak kekayaan intelektual kreator.
+            Pengingat: Hormati karya dan hak
+            kekayaan intelektual kreator.
           </div>
 
           {loading && (
@@ -173,17 +230,22 @@ export default function Home() {
               <div className="loading-spinner" />
 
               <span>
-                Mengambil dan memproses media TikTok...
+                Mengambil dan memproses media
+                TikTok...
               </span>
             </div>
           )}
 
           {result?.error && (
             <div className="error">
-              <div className="error-icon">!</div>
+              <div className="error-icon">
+                !
+              </div>
 
               <div className="error-content">
-                <strong>Gagal memproses media</strong>
+                <strong>
+                  Gagal memproses media
+                </strong>
 
                 <p>{result.error}</p>
               </div>
@@ -192,65 +254,135 @@ export default function Home() {
 
           {data && (
             <section className="result">
-              {isPhotoResult && data.photos && (
-                <section className="photo-section">
-                  <div className="section-header">
-                    <div>
-                      <span className="section-label">
-                        Slideshow TikTok
-                      </span>
+              {isPhotoResult &&
+                data.photos &&
+                data.photos.length > 0 && (
+                  <section className="photo-section">
+                    <div className="section-header">
+                      <div>
+                        <span className="section-label">
+                          Slideshow TikTok
+                        </span>
 
-                      <h2>Foto Video</h2>
+                        <h2>Foto Video</h2>
+                      </div>
+
+                      <div className="photo-count">
+                        {photoIndex + 1} /{" "}
+                        {data.photos.length}
+                      </div>
                     </div>
 
-                    <div className="photo-count">
-                      {data.photos.length} foto
-                    </div>
-                  </div>
+                    {data.description && (
+                      <div className="photo-caption">
+                        {data.description}
+                      </div>
+                    )}
 
-                  {data.description && (
-                    <div className="photo-caption">
-                      {data.description}
-                    </div>
-                  )}
-
-                  <div className="photo-grid">
-                    {data.photos.map((photo, index) => (
-                      <article
-                        className="photo-card"
-                        key={`${photo.downloadUrl}-${index}`}
+                    <div className="photo-carousel">
+                      <div
+                        className="photo-track"
+                        style={{
+                          transform: `translateX(-${
+                            photoIndex * 100
+                          }%)`,
+                        }}
                       >
-                        <div className="photo-number">
-                          {photo.photoIndex || index + 1}
-                        </div>
+                        {data.photos.map(
+                          (photo, index) => (
+                            <div
+                              className="photo-slide"
+                              key={`${photo.downloadUrl}-${index}`}
+                            >
+                              <div className="photo-image-wrapper">
+                                <img
+                                  src={
+                                    photo.downloadUrl
+                                  }
+                                  alt={`Foto slideshow ${
+                                    index + 1
+                                  }`}
+                                  draggable={false}
+                                />
+                              </div>
+                            </div>
+                          )
+                        )}
+                      </div>
 
-                        <div className="photo-image-wrapper">
-                          <img
-                            src={photo.downloadUrl}
-                            alt={`Foto slideshow ${
-                              photo.photoIndex || index + 1
-                            }`}
-                            loading="lazy"
-                          />
-                        </div>
+                      {data.photos.length > 1 && (
+                        <>
+                          <button
+                            type="button"
+                            className="carousel-button carousel-prev"
+                            onClick={
+                              showPreviousPhoto
+                            }
+                            aria-label="Foto sebelumnya"
+                          >
+                            ‹
+                          </button>
 
-                        <a
-                          className="photo-download"
-                          href={photo.downloadUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <span className="download-icon">
-                            ↓
-                          </span>
+                          <button
+                            type="button"
+                            className="carousel-button carousel-next"
+                            onClick={
+                              showNextPhoto
+                            }
+                            aria-label="Foto berikutnya"
+                          >
+                            ›
+                          </button>
+                        </>
+                      )}
+                    </div>
 
-                          <span>Download Foto</span>
-                        </a>
-                      </article>
-                    ))}
-                  </div>
-                </section>
-              )}
+                    {data.photos.length > 1 && (
+                      <div className="carousel-dots">
+                        {data.photos.map(
+                          (_, index) => (
+                            <button
+                              type="button"
+                              key={index}
+                              className={`carousel-dot ${
+                                index === photoIndex
+                                  ? "active"
+                                  : ""
+                              }`}
+                              onClick={() =>
+                                setPhotoIndex(
+                                  index
+                                )
+                              }
+                              aria-label={`Tampilkan foto ${
+                                index + 1
+                              }`}
+                            />
+                          )
+                        )}
+                      </div>
+                    )}
+
+                    {activePhoto && (
+                      <a
+                        className="photo-download"
+                        href={
+                          activePhoto.downloadUrl
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <span className="download-icon">
+                          ↓
+                        </span>
+
+                        <span>
+                          Download Foto
+                        </span>
+                      </a>
+                    )}
+                  </section>
+                )}
 
               {mediaUrl && (
                 <>
@@ -265,9 +397,14 @@ export default function Home() {
                         controls
                         playsInline
                         preload="none"
-                        poster={data.cover || undefined}
+                        poster={
+                          data.cover ||
+                          undefined
+                        }
                         src={mediaUrl}
-                        onError={() => setVideoError(true)}
+                        onError={() =>
+                          setVideoError(true)
+                        }
                       />
 
                       {videoError && (
@@ -277,7 +414,9 @@ export default function Home() {
                           </strong>
 
                           <span>
-                            Gunakan tombol download di bawah.
+                            Gunakan tombol
+                            download di
+                            bawah.
                           </span>
                         </div>
                       )}
@@ -289,13 +428,18 @@ export default function Home() {
 
                     <a
                       className="download-button"
-                      href={downloadHref || undefined}
+                      href={
+                        downloadHref ||
+                        undefined
+                      }
                     >
                       <span className="download-icon">
                         ↓
                       </span>
 
-                      <span>Download VT</span>
+                      <span>
+                        Download VT
+                      </span>
                     </a>
 
                     <div className="download-line" />
@@ -310,7 +454,9 @@ export default function Home() {
                       Rangkuman VT
                     </span>
 
-                    <h2>Informasi Video</h2>
+                    <h2>
+                      Informasi Video
+                    </h2>
                   </div>
                 </div>
 
@@ -318,7 +464,9 @@ export default function Home() {
                   <div className="creator-avatar">
                     {data.author?.avatar ? (
                       <img
-                        src={data.author.avatar}
+                        src={
+                          data.author.avatar
+                        }
                         alt={
                           data.author.nickname ||
                           "Creator"
@@ -327,8 +475,10 @@ export default function Home() {
                     ) : (
                       <span>
                         {(
-                          data.author?.nickname ||
-                          data.author?.username ||
+                          data.author
+                            ?.nickname ||
+                          data.author
+                            ?.username ||
                           "T"
                         )[0].toUpperCase()}
                       </span>
@@ -341,16 +491,22 @@ export default function Home() {
                         data.author?.username ||
                         "Nama kreator"}
 
-                      {data.author?.verified && (
+                      {data.author
+                        ?.verified && (
                         <span className="verified">
                           ✓
                         </span>
                       )}
                     </div>
 
-                    {data.author?.username && (
+                    {data.author
+                      ?.username && (
                       <div className="creator-username">
-                        @{data.author.username}
+                        @
+                        {
+                          data.author
+                            .username
+                        }
                       </div>
                     )}
                   </div>
@@ -395,7 +551,9 @@ export default function Home() {
                     </span>
 
                     <div>
-                      <small>Komentar</small>
+                      <small>
+                        Komentar
+                      </small>
 
                       <strong>
                         {formatNumber(
@@ -411,7 +569,9 @@ export default function Home() {
                     </span>
 
                     <div>
-                      <small>Repost</small>
+                      <small>
+                        Repost
+                      </small>
 
                       <strong>
                         {formatNumber(
@@ -422,28 +582,38 @@ export default function Home() {
                   </div>
                 </div>
 
-                {data.description && !isPhotoResult && (
-                  <div className="description-box">
-                    <div className="description-title">
-                      Caption
-                    </div>
+                {data.description &&
+                  !isPhotoResult && (
+                    <div className="description-box">
+                      <div className="description-title">
+                        Caption
+                      </div>
 
-                    <p>{data.description}</p>
-                  </div>
-                )}
+                      <p>
+                        {data.description}
+                      </p>
+                    </div>
+                  )}
 
                 {data.hashtags &&
-                  data.hashtags.length > 0 && (
+                  data.hashtags.length >
+                    0 && (
                     <div className="hashtags">
                       {data.hashtags.map(
-                        (hashtag, index) => (
+                        (
+                          hashtag,
+                          index
+                        ) => (
                           <span
                             key={
                               hashtag.hashtagId ||
                               index
                             }
                           >
-                            #{hashtag.hashtagName}
+                            #
+                            {
+                              hashtag.hashtagName
+                            }
                           </span>
                         )
                       )}
@@ -452,15 +622,17 @@ export default function Home() {
               </div>
 
               <div className="processing-note">
-                Media diproses melalui server Next.js,
-                RapidAPI, dan provider download.
+                Media diproses melalui server
+                Next.js, RapidAPI, dan
+                provider download.
               </div>
             </section>
           )}
         </section>
 
         <footer className="footer">
-          Gunakan hanya untuk konten yang kamu berhak unduh.
+          Gunakan hanya untuk konten yang
+          kamu berhak unduh.
         </footer>
       </div>
     </main>
