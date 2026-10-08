@@ -25,6 +25,10 @@ type TikTokData = {
   };
 
   downloadUrl?: string;
+
+  originalUrl?: string;
+
+  resolvedUrl?: string;
 };
 
 type ApiResponse = {
@@ -34,28 +38,44 @@ type ApiResponse = {
 };
 
 function formatNumber(value?: number) {
-  if (value === undefined || value === null) {
+  if (
+    value === undefined ||
+    value === null
+  ) {
     return "-";
   }
 
-  return new Intl.NumberFormat("en-US", {
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
+  return new Intl.NumberFormat(
+    "en-US",
+    {
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }
+  ).format(value);
 }
 
 export default function Home() {
-  const [url, setUrl] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [url, setUrl] =
+    useState("");
+
+  const [loading, setLoading] =
+    useState(false);
+
   const [result, setResult] =
-    useState<ApiResponse | null>(null);
+    useState<ApiResponse | null>(
+      null
+    );
+
+  const [videoError, setVideoError] =
+    useState(false);
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
 
-    const cleanUrl = url.trim();
+    const cleanUrl =
+      url.trim();
 
     if (!cleanUrl) {
       return;
@@ -63,14 +83,19 @@ export default function Home() {
 
     setLoading(true);
     setResult(null);
+    setVideoError(false);
 
     try {
-      const response = await fetch(
-        `/api/tiktok?url=${encodeURIComponent(cleanUrl)}`,
-        {
-          method: "GET",
-        }
-      );
+      const response =
+        await fetch(
+          `/api/tiktok?url=${encodeURIComponent(
+            cleanUrl
+          )}`,
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
 
       const data: ApiResponse =
         await response.json();
@@ -87,7 +112,22 @@ export default function Home() {
     }
   }
 
-  const data = result?.data;
+  const data =
+    result?.data;
+
+  const proxyVideoUrl =
+    data?.downloadUrl
+      ? `/api/download?url=${encodeURIComponent(
+          data.downloadUrl
+        )}`
+      : null;
+
+  const downloadVideoUrl =
+    data?.downloadUrl
+      ? `/api/download?url=${encodeURIComponent(
+          data.downloadUrl
+        )}&download=1`
+      : null;
 
   return (
     <main className="page">
@@ -103,8 +143,9 @@ export default function Home() {
           </h1>
 
           <p>
-            Download video TikTok dalam format
-            MP4 dengan cepat.
+            Download video TikTok
+            dalam format MP4
+            dengan cepat.
           </p>
         </section>
 
@@ -112,7 +153,9 @@ export default function Home() {
 
           <form
             className="form"
-            onSubmit={handleSubmit}
+            onSubmit={
+              handleSubmit
+            }
           >
             <input
               className="input"
@@ -120,9 +163,11 @@ export default function Home() {
               value={url}
               required
               onChange={(event) =>
-                setUrl(event.target.value)
+                setUrl(
+                  event.target.value
+                )
               }
-              placeholder="https://www.tiktok.com/@user/video/..."
+              placeholder="https://vt.tiktok.com/..."
             />
 
             <button
@@ -138,7 +183,9 @@ export default function Home() {
 
           {loading && (
             <div className="status">
-              Mengambil video dari RapidAPI...
+              Mengambil dan
+              memproses video
+              TikTok...
             </div>
           )}
 
@@ -151,14 +198,45 @@ export default function Home() {
           {data && (
             <section className="result">
 
-              {data.downloadUrl && (
-                <video
-                  className="preview"
-                  controls
-                  playsInline
-                  preload="metadata"
-                  src={data.downloadUrl}
-                />
+              {proxyVideoUrl && (
+                <div className="video-wrapper">
+
+                  <video
+                    className="preview"
+                    controls
+                    playsInline
+                    preload="metadata"
+                    poster={
+                      data.cover ||
+                      undefined
+                    }
+                    src={
+                      proxyVideoUrl
+                    }
+                    onError={() =>
+                      setVideoError(
+                        true
+                      )
+                    }
+                  />
+
+                  {videoError && (
+                    <div className="video-error">
+                      Video gagal
+                      dimuat dari
+                      provider.
+                      <br />
+                      Coba tekan
+                      tombol
+                      <strong>
+                        {" "}
+                        Download MP4
+                      </strong>
+                      .
+                    </div>
+                  )}
+
+                </div>
               )}
 
               <div className="info">
@@ -178,9 +256,22 @@ export default function Home() {
                   </div>
                 )}
 
+                {data.author
+                  ?.username && (
+                  <div className="username">
+                    @
+                    {
+                      data.author
+                        .username
+                    }
+                  </div>
+                )}
+
                 {data.description && (
                   <p className="description">
-                    {data.description}
+                    {
+                      data.description
+                    }
                   </p>
                 )}
 
@@ -193,7 +284,8 @@ export default function Home() {
 
                     <strong>
                       {formatNumber(
-                        data.stats?.views
+                        data.stats
+                          ?.views
                       )}
                     </strong>
                   </div>
@@ -205,7 +297,8 @@ export default function Home() {
 
                     <strong>
                       {formatNumber(
-                        data.stats?.likes
+                        data.stats
+                          ?.likes
                       )}
                     </strong>
                   </div>
@@ -217,7 +310,8 @@ export default function Home() {
 
                     <strong>
                       {formatNumber(
-                        data.stats?.comments
+                        data.stats
+                          ?.comments
                       )}
                     </strong>
                   </div>
@@ -229,7 +323,8 @@ export default function Home() {
 
                     <strong>
                       {formatNumber(
-                        data.stats?.shares
+                        data.stats
+                          ?.shares
                       )}
                     </strong>
                   </div>
@@ -237,7 +332,7 @@ export default function Home() {
                 </div>
               </div>
 
-              {data.downloadUrl && (
+              {downloadVideoUrl && (
                 <div className="download">
 
                   <div>
@@ -246,14 +341,16 @@ export default function Home() {
                     </div>
 
                     <div className="download-subtitle">
-                      TikTok video
+                      Format MP4
                     </div>
                   </div>
 
                   <a
-                    href={`/api/download?url=${encodeURIComponent(
-                      data.downloadUrl
-                    )}`}
+                    className="download-button"
+                    href={
+                      downloadVideoUrl
+                    }
+                    download="tiktok-video.mp4"
                   >
                     Download MP4
                   </a>
@@ -261,13 +358,41 @@ export default function Home() {
                 </div>
               )}
 
+              {data.hashtags &&
+                data.hashtags.length >
+                  0 && (
+                  <div className="hashtags">
+                    {data.hashtags.map(
+                      (
+                        hashtag,
+                        index
+                      ) => (
+                        <span
+                          key={
+                            hashtag.hashtagId ||
+                            index
+                          }
+                        >
+                          #
+                          {
+                            hashtag.hashtagName
+                          }
+                        </span>
+                      )
+                    )}
+                  </div>
+                )}
+
               <div className="note">
-                Video diambil menggunakan
-                endpoint RapidAPI
-                <code> /media </code>
-                dan
-                <code> downloadUrl </code>
-                dari response API.
+                URL TikTok diproses
+                oleh server
+                Next.js terlebih
+                dahulu. File video
+                kemudian di-proxy
+                melalui server agar
+                browser tidak perlu
+                mengakses provider
+                secara langsung.
               </div>
 
             </section>
@@ -276,8 +401,9 @@ export default function Home() {
         </section>
 
         <div className="footer">
-          Gunakan hanya untuk konten yang
-          kamu berhak unduh.
+          Gunakan hanya untuk
+          konten yang kamu
+          berhak unduh.
         </div>
 
       </div>
