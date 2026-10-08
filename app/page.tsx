@@ -98,11 +98,20 @@ export default function Home() {
 
   const data = result?.data;
 
+  // PREVIEW: memakai link dari pencarian awal.
   const mediaUrl = data?.downloadUrl
     ? `/api/download?url=${encodeURIComponent(
         data.downloadUrl
       )}`
     : null;
+
+  // DOWNLOAD: server meminta link/sesi BARU ke RapidAPI saat tombol
+  // ditekan, jadi tidak kena "Invalid Session".
+  const downloadHref = data?.resolvedUrl
+    ? `/api/download?tiktok=${encodeURIComponent(
+        data.resolvedUrl
+      )}`
+    : mediaUrl;
 
   return (
     <main className="page">
@@ -196,7 +205,7 @@ export default function Home() {
                         className="preview"
                         controls
                         playsInline
-                        preload="metadata"
+                        preload="none"
                         poster={
                           data.cover || undefined
                         }
@@ -228,7 +237,7 @@ export default function Home() {
 
                     <a
                       className="download-button"
-                      href={mediaUrl}
+                      href={downloadHref || undefined}
                     >
                       <span className="download-icon">
                         ↓
