@@ -124,6 +124,20 @@ export default function Home() {
     )}&username=${encodeURIComponent(username)}`;
   }, [activePhoto, photoData]);
 
+  const videoDownloadHref = useMemo(() => {
+    if (!data) return null;
+
+    const targetUrl =
+      data.resolvedUrl ||
+      data.originalUrl;
+
+    if (!targetUrl) return null;
+
+    return `/api/download?tiktok=${encodeURIComponent(
+      targetUrl
+    )}`;
+  }, [data]);
+
   async function requestJson(
     endpoint: string,
     targetUrl: string
@@ -199,31 +213,6 @@ export default function Home() {
           throw new Error(
             slideshow.result?.error ||
               "Gagal mendapatkan slideshow TikTok."
-          );
-        }
-
-        if (
-          shortUrl &&
-          !slideshow.response.ok &&
-          slideshow.result?.error
-        ) {
-          const video =
-            await requestJson(
-              "/api/tiktok",
-              value
-            );
-
-          if (
-            video.response.ok &&
-            video.result?.ok &&
-            video.result.data
-          ) {
-            setData(video.result.data);
-            return;
-          }
-
-          throw new Error(
-            slideshow.result.error
           );
         }
       }
@@ -376,9 +365,11 @@ export default function Home() {
                 className="main-video"
                 controls
                 playsInline
-                preload="metadata"
+                preload="none"
                 poster={data.cover}
-                src={data.downloadUrl}
+                src={`/api/download?url=${encodeURIComponent(
+                  data.downloadUrl
+                )}`}
               />
             ) : data.cover ? (
               <img
@@ -392,12 +383,10 @@ export default function Home() {
               </div>
             )}
 
-            {data.downloadUrl && (
+            {videoDownloadHref && (
               <a
                 className="download-vt-button"
-                href={`/api/download?tiktok=${encodeURIComponent(
-                  data.downloadUrl
-                )}`}
+                href={videoDownloadHref}
               >
                 <span className="download-icon">
                   ↓
