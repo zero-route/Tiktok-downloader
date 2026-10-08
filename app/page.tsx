@@ -43,14 +43,11 @@ type ApiResponse = {
 };
 
 function formatNumber(value?: number) {
-  if (
-    value === undefined ||
-    value === null
-  ) {
+  if (value === undefined || value === null) {
     return "-";
   }
 
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("id-ID", {
     notation: "compact",
     maximumFractionDigits: 1,
   }).format(value);
@@ -59,11 +56,8 @@ function formatNumber(value?: number) {
 export default function Home() {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] =
-    useState<ApiResponse | null>(null);
-
-  const [videoError, setVideoError] =
-    useState(false);
+  const [result, setResult] = useState<ApiResponse | null>(null);
+  const [videoError, setVideoError] = useState(false);
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
@@ -82,24 +76,20 @@ export default function Home() {
 
     try {
       const response = await fetch(
-        `/api/tiktok?url=${encodeURIComponent(
-          cleanUrl
-        )}`,
+        `/api/tiktok?url=${encodeURIComponent(cleanUrl)}`,
         {
           method: "GET",
           cache: "no-store",
         }
       );
 
-      const data: ApiResponse =
-        await response.json();
+      const data: ApiResponse = await response.json();
 
       setResult(data);
     } catch {
       setResult({
         ok: false,
-        error:
-          "Tidak dapat terhubung ke server.",
+        error: "Tidak dapat terhubung ke server.",
       });
     } finally {
       setLoading(false);
@@ -108,39 +98,21 @@ export default function Home() {
 
   const data = result?.data;
 
-  const videoUrl =
-    data?.downloadUrl
-      ? `/api/download?url=${encodeURIComponent(
-          data.downloadUrl
-        )}`
-      : null;
-
-  // Download memakai sesi BARU: server meminta link baru ke RapidAPI
-  // tepat saat tombol ditekan, jadi tidak kena "Invalid Session".
-  const downloadUrl =
-    data?.resolvedUrl
-      ? `/api/download?tiktok=${encodeURIComponent(
-          data.resolvedUrl
-        )}`
-      : null;
+  const mediaUrl = data?.downloadUrl
+    ? `/api/download?url=${encodeURIComponent(
+        data.downloadUrl
+      )}`
+    : null;
 
   return (
     <main className="page">
       <div className="shell">
 
         <section className="hero">
-          <div className="badge">
-            RapidAPI · TikTok Downloader
-          </div>
-
-          <h1>
-            TikTok Downloader
-          </h1>
+          <h1>TikTok Downloader</h1>
 
           <p>
-            Download video TikTok
-            dalam format MP4
-            dengan cepat.
+            Unduh video TikTok dengan cepat dan mudah.
           </p>
         </section>
 
@@ -150,225 +122,295 @@ export default function Home() {
             className="form"
             onSubmit={handleSubmit}
           >
-            <input
-              className="input"
-              type="url"
-              value={url}
-              required
-              onChange={(event) =>
-                setUrl(
-                  event.target.value
-                )
-              }
-              placeholder="https://vt.tiktok.com/..."
-            />
+            <div className="input-wrapper">
+              <input
+                className="input"
+                type="url"
+                value={url}
+                required
+                onChange={(event) =>
+                  setUrl(event.target.value)
+                }
+                placeholder="Masukkan tautan media..."
+              />
+
+              {url && (
+                <button
+                  type="button"
+                  className="clear-button"
+                  onClick={() => setUrl("")}
+                  aria-label="Hapus URL"
+                >
+                  ×
+                </button>
+              )}
+            </div>
 
             <button
               className="button"
               type="submit"
               disabled={loading}
             >
-              {loading
-                ? "Processing..."
-                : "Get Video"}
+              {loading ? "Memproses..." : "Unduh"}
             </button>
           </form>
 
+          <div className="copyright-note">
+            Pengingat: Hormati karya dan hak kekayaan
+            intelektual kreator.
+          </div>
+
           {loading && (
             <div className="status">
-              Mengambil dan
-              memproses video
-              TikTok...
+              <div className="loading-spinner" />
+              <span>
+                Mengambil dan memproses video TikTok...
+              </span>
             </div>
           )}
 
           {result?.error && (
             <div className="error">
-              {result.error}
+              <div className="error-icon">!</div>
+
+              <div>
+                <strong>Gagal memproses video</strong>
+                <p>{result.error}</p>
+              </div>
             </div>
           )}
 
           {data && (
             <section className="result">
 
-              {videoUrl && (
-                <div className="video-wrapper">
+              {mediaUrl && (
+                <>
+                  <div className="video-section">
 
-                  <video
-                    className="preview"
-                    controls
-                    playsInline
-                    preload="none"
-                    poster={
-                      data.cover ||
-                      undefined
-                    }
-                    src={videoUrl}
-                    onError={() =>
-                      setVideoError(
-                        true
-                      )
-                    }
-                  />
-
-                  {videoError && (
-                    <div className="video-error">
-                      Video gagal dimuat.
-
-                      <br />
-
-                      Coba tekan tombol
-                      <strong>
-                        {" "}
-                        Download MP4
-                      </strong>
-                      .
+                    <div className="section-label">
+                      Video Utama
                     </div>
-                  )}
 
-                </div>
+                    <div className="video-wrapper">
+                      <video
+                        className="preview"
+                        controls
+                        playsInline
+                        preload="metadata"
+                        poster={
+                          data.cover || undefined
+                        }
+                        src={mediaUrl}
+                        onError={() =>
+                          setVideoError(true)
+                        }
+                      />
+
+                      {videoError && (
+                        <div className="video-error">
+                          <strong>
+                            Video gagal dimuat
+                          </strong>
+
+                          <span>
+                            Gunakan tombol download
+                            di bawah.
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+
+                  <div className="download-area">
+
+                    <div className="download-line" />
+
+                    <a
+                      className="download-button"
+                      href={mediaUrl}
+                    >
+                      <span className="download-icon">
+                        ↓
+                      </span>
+
+                      <span>
+                        Download VT
+                      </span>
+                    </a>
+
+                    <div className="download-line" />
+
+                  </div>
+                </>
               )}
 
-              <div className="info">
+              <div className="summary">
 
-                {data.author && (
-                  <div className="author">
-                    {data.author.nickname ||
-                      data.author.username ||
-                      "TikTok User"}
+                <div className="summary-heading">
+                  <div>
+                    <span className="section-label">
+                      Rangkuman VT
+                    </span>
 
-                    {data.author.verified && (
+                    <h2>
+                      Informasi Video
+                    </h2>
+                  </div>
+                </div>
+
+                <div className="creator">
+
+                  <div className="creator-avatar">
+
+                    {data.author?.avatar ? (
+                      <img
+                        src={data.author.avatar}
+                        alt={
+                          data.author.nickname ||
+                          "Creator"
+                        }
+                      />
+                    ) : (
                       <span>
-                        {" "}
-                        ✓
+                        {(data.author?.nickname ||
+                          data.author?.username ||
+                          "T")[0].toUpperCase()}
                       </span>
                     )}
-                  </div>
-                )}
 
-                {data.author?.username && (
-                  <div className="username">
-                    @
-                    {
-                      data.author
-                        .username
-                    }
                   </div>
-                )}
 
-                {data.description && (
-                  <p className="description">
-                    {
-                      data.description
-                    }
-                  </p>
-                )}
+                  <div className="creator-info">
+
+                    <div className="creator-name">
+                      {data.author?.nickname ||
+                        data.author?.username ||
+                        "Nama kreator"}
+
+                      {data.author?.verified && (
+                        <span className="verified">
+                          ✓
+                        </span>
+                      )}
+                    </div>
+
+                    {data.author?.username && (
+                      <div className="creator-username">
+                        @{data.author.username}
+                      </div>
+                    )}
+
+                  </div>
+
+                </div>
 
                 <div className="stats">
 
                   <div className="stat">
-                    <small>
-                      Views
-                    </small>
+                    <span className="stat-icon">
+                      ▶
+                    </span>
 
-                    <strong>
-                      {formatNumber(
-                        data.stats?.views
-                      )}
-                    </strong>
-                  </div>
-
-                  <div className="stat">
-                    <small>
-                      Likes
-                    </small>
-
-                    <strong>
-                      {formatNumber(
-                        data.stats?.likes
-                      )}
-                    </strong>
-                  </div>
-
-                  <div className="stat">
-                    <small>
-                      Comments
-                    </small>
-
-                    <strong>
-                      {formatNumber(
-                        data.stats?.comments
-                      )}
-                    </strong>
-                  </div>
-
-                  <div className="stat">
-                    <small>
-                      Shares
-                    </small>
-
-                    <strong>
-                      {formatNumber(
-                        data.stats?.shares
-                      )}
-                    </strong>
-                  </div>
-
-                </div>
-              </div>
-
-              {downloadUrl && (
-                <div className="download">
-
-                  <div>
-                    <div className="download-title">
-                      Video MP4
-                    </div>
-
-                    <div className="download-subtitle">
-                      Video + Audio
+                    <div>
+                      <small>Views</small>
+                      <strong>
+                        {formatNumber(
+                          data.stats?.views
+                        )}
+                      </strong>
                     </div>
                   </div>
 
-                  <a
-                    className="download-button"
-                    href={downloadUrl}
-                  >
-                    Download MP4
-                  </a>
+                  <div className="stat">
+                    <span className="stat-icon">
+                      ♡
+                    </span>
+
+                    <div>
+                      <small>Likes</small>
+                      <strong>
+                        {formatNumber(
+                          data.stats?.likes
+                        )}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className="stat">
+                    <span className="stat-icon">
+                      ○
+                    </span>
+
+                    <div>
+                      <small>Komentar</small>
+                      <strong>
+                        {formatNumber(
+                          data.stats?.comments
+                        )}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className="stat">
+                    <span className="stat-icon">
+                      ↗
+                    </span>
+
+                    <div>
+                      <small>Repost</small>
+                      <strong>
+                        {formatNumber(
+                          data.stats?.shares
+                        )}
+                      </strong>
+                    </div>
+                  </div>
 
                 </div>
-              )}
 
-              {data.hashtags &&
-                data.hashtags.length > 0 && (
-                  <div className="hashtags">
-                    {data.hashtags.map(
-                      (
-                        hashtag,
-                        index
-                      ) => (
-                        <span
-                          key={
-                            hashtag.hashtagId ||
-                            index
-                          }
-                        >
-                          #
-                          {
-                            hashtag.hashtagName
-                          }
-                        </span>
-                      )
-                    )}
+                {data.description && (
+                  <div className="description-box">
+
+                    <div className="description-title">
+                      Caption
+                    </div>
+
+                    <p>
+                      {data.description}
+                    </p>
+
                   </div>
                 )}
 
-              <div className="note">
-                Video diproses melalui
-                server Next.js dan
-                download URL dari
-                provider.
+                {data.hashtags &&
+                  data.hashtags.length > 0 && (
+                    <div className="hashtags">
+
+                      {data.hashtags.map(
+                        (hashtag, index) => (
+                          <span
+                            key={
+                              hashtag.hashtagId ||
+                              index
+                            }
+                          >
+                            #
+                            {
+                              hashtag.hashtagName
+                            }
+                          </span>
+                        )
+                      )}
+
+                    </div>
+                  )}
+
+              </div>
+
+              <div className="processing-note">
+                Video diproses melalui server Next.js
+                dan provider download.
               </div>
 
             </section>
@@ -376,11 +418,10 @@ export default function Home() {
 
         </section>
 
-        <div className="footer">
-          Gunakan hanya untuk
-          konten yang kamu
+        <footer className="footer">
+          Gunakan hanya untuk konten yang kamu
           berhak unduh.
-        </div>
+        </footer>
 
       </div>
     </main>
