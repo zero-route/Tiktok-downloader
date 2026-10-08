@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { fetchTikTokMedia } from "@/lib/rapidapi";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const ALLOWED_HOST = "robotilab.online";
-const MAX_ATTEMPTS = 2;
-const RETRY_DELAY_MS = 1000;
+const MAX_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 800;
 
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140 Safari/537.36";
@@ -19,16 +20,45 @@ function shouldRetry(status: number) {
   return status === 400 || status === 429 || status >= 500;
 }
 
-async function fetchFromProvider(
-  downloadUrl: string,
-  range: string | null
-) {
+function isTikTokVideoUrl(value: string) {
+  try {
+    const u = new URL(value);
+    const host = u.hostname.toLowerCase();
+    return (
+      (host === "tiktok.com" || host.endsWith(".tiktok.com")) &&
+      /^\/@[^/]+\/video\/\d+/.test(u.pathname)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isAllowedProviderUrl(value: string) {
+  try {
+    const u = new URL(value);
+    return u.protocol === "https:" && u.hostname === ALLOWED_HOST;
+  } catch {
+    return false;
+  }
+}
+
+// Minta link download BARU (sesi baru) ke RapidAPI.
+async function getFreshDownloadUrl(tiktokUrl: string) {
+  const data = await fetchTikTokMedia(tiktokUrl);
+
+  if (!data.downloadUrl || !isAllowedProviderUrl(data.downloadUrl)) {
+    throw new Error("Download URL dari API tidak valid.");
+  }
+
+  return data.downloadUrl;
+}
+
+async function fetchFromProvider(downloadUrl: string, range: string | null) {
   const headers: Record<string, string> = {
     Accept: "video/mp4,video/*;q=0.9,*/*;q=0.8",
     "User-Agent": USER_AGENT,
   };
 
-  // Teruskan Range supaya preview/seek video tetap lancar.
   if (range) {
     headers.Range = range;
   }
@@ -41,48 +71,85 @@ async function fetchFromProvider(
   });
 }
 
+/**
+ * Dua mode:
+ *  - ?tiktok=<url video TikTok>  -> DOWNLOAD. Minta sesi baru ke RapidAPI,
+ *    dan kalau gagal ("Invalid Session"), minta sesi baru lagi lalu coba ulang.
+ *  - ?url=<link robotilab>       -> PREVIEW. Proxy link yang sudah ada.
+ */
 export async function GET(request: NextRequest) {
-  const downloadUrl = request.nextUrl.searchParams.get("url");
+  const tiktokUrl = request.nextUrl.searchParams.get("tiktok")?.trim();
+  const providerUrl = request.nextUrl.searchParams.get("url")?.trim();
+  const range = request.headers.get("range");
 
-  if (!downloadUrl) {
+  const isDownloadMode = Boolean(tiktokUrl);
+
+  if (!tiktokUrl && !providerUrl) {
     return NextResponse.json(
-      { ok: false, error: "Download URL wajib diisi." },
+      { ok: false, error: "Parameter tiktok atau url wajib diisi." },
+      { status: 400 }
+    );
+  }
+
+  if (tiktokUrl && !isTikTokVideoUrl(tiktokUrl)) {
+    return NextResponse.json(
+      { ok: false, error: "URL video TikTok tidak valid." },
+      { status: 400 }
+    );
+  }
+
+  if (!tiktokUrl && providerUrl && !isAllowedProviderUrl(providerUrl)) {
+    return NextResponse.json(
+      { ok: false, error: "Download URL tidak diizinkan." },
       { status: 400 }
     );
   }
 
   try {
-    const parsed = new URL(downloadUrl);
+    let currentUrl: string;
 
-    if (parsed.protocol !== "https:" || parsed.hostname !== ALLOWED_HOST) {
+    try {
+      currentUrl = tiktokUrl
+        ? await getFreshDownloadUrl(tiktokUrl)
+        : (providerUrl as string);
+    } catch (error) {
       return NextResponse.json(
-        { ok: false, error: "Download URL tidak diizinkan." },
-        { status: 400 }
+        {
+          ok: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Gagal meminta link download.",
+        },
+        { status: 502 }
       );
     }
 
-    const range = request.headers.get("range");
+    let response = await fetchFromProvider(currentUrl, range);
 
-    let response = await fetchFromProvider(downloadUrl, range);
-
-    // Retry untuk error sementara dari provider (400/429/5xx).
     for (
       let attempt = 1;
       attempt < MAX_ATTEMPTS && !response.ok && shouldRetry(response.status);
       attempt++
     ) {
       await sleep(RETRY_DELAY_MS);
-      response = await fetchFromProvider(downloadUrl, range);
+
+      // Mode download: sesi lama mungkin tidak valid -> minta link baru.
+      if (tiktokUrl) {
+        try {
+          currentUrl = await getFreshDownloadUrl(tiktokUrl);
+        } catch {
+          break;
+        }
+      }
+
+      response = await fetchFromProvider(currentUrl, range);
     }
 
     if (!response.ok || !response.body) {
-      // Baca isi respons provider supaya penyebab aslinya kelihatan.
       const detail = (await response.text().catch(() => "")).slice(0, 300);
 
-      console.error(
-        `[download] provider HTTP ${response.status}:`,
-        detail
-      );
+      console.error(`[download] provider HTTP ${response.status}:`, detail);
 
       return NextResponse.json(
         {
@@ -126,17 +193,24 @@ export async function GET(request: NextRequest) {
       headers.set("Content-Range", contentRange);
     }
 
-    headers.set("Accept-Ranges", response.headers.get("accept-ranges") || "bytes");
-
     headers.set(
-      "Content-Disposition",
-      'attachment; filename="tiktok-video.mp4"'
+      "Accept-Ranges",
+      response.headers.get("accept-ranges") || "bytes"
     );
+
+    if (isDownloadMode) {
+      const id = tiktokUrl?.match(/\/video\/(\d+)/)?.[1] || "video";
+      headers.set(
+        "Content-Disposition",
+        `attachment; filename="tiktok-${id}.mp4"`
+      );
+    } else {
+      headers.set("Content-Disposition", "inline");
+    }
 
     headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
 
     return new NextResponse(response.body, {
-      // 200 (penuh) atau 206 (sebagian) sesuai respons provider.
       status: response.status === 206 ? 206 : 200,
       headers,
     });

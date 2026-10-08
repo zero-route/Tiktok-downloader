@@ -115,10 +115,12 @@ export default function Home() {
         )}`
       : null;
 
+  // Download memakai sesi BARU: server meminta link baru ke RapidAPI
+  // tepat saat tombol ditekan, jadi tidak kena "Invalid Session".
   const downloadUrl =
-    data?.downloadUrl
-      ? `/api/download?url=${encodeURIComponent(
-          data.downloadUrl
+    data?.resolvedUrl
+      ? `/api/download?tiktok=${encodeURIComponent(
+          data.resolvedUrl
         )}`
       : null;
 
@@ -196,7 +198,7 @@ export default function Home() {
                     className="preview"
                     controls
                     playsInline
-                    preload="metadata"
+                    preload="none"
                     poster={
                       data.cover ||
                       undefined
