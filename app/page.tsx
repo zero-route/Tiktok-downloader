@@ -53,11 +53,10 @@ type ApiResponse = {
 
 function isPhotoUrl(value: string) {
   try {
-    const parsed = new URL(value);
-
+    const url = new URL(value);
     return (
-      parsed.pathname.toLowerCase().includes("/photo/") ||
-      parsed.pathname.toLowerCase().includes("/photos/")
+      url.pathname.toLowerCase().includes("/photo/") ||
+      url.pathname.toLowerCase().includes("/photos/")
     );
   } catch {
     return false;
@@ -66,12 +65,13 @@ function isPhotoUrl(value: string) {
 
 function isShortTikTokUrl(value: string) {
   try {
-    const parsed = new URL(value);
-    const host = parsed.hostname.toLowerCase();
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
 
     return (
       host === "vt.tiktok.com" ||
-      host === "vm.tiktok.com"
+      host === "vm.tiktok.com" ||
+      host === "m.tiktok.com"
     );
   } catch {
     return false;
@@ -82,21 +82,15 @@ function formatNumber(value?: number) {
   if (!value) return "0";
 
   if (value >= 1000000000) {
-    return `${(value / 1000000000)
-      .toFixed(1)
-      .replace(".0", "")}B`;
+    return `${(value / 1000000000).toFixed(1).replace(".0", "")}B`;
   }
 
   if (value >= 1000000) {
-    return `${(value / 1000000)
-      .toFixed(1)
-      .replace(".0", "")}M`;
+    return `${(value / 1000000).toFixed(1).replace(".0", "")}M`;
   }
 
   if (value >= 1000) {
-    return `${(value / 1000)
-      .toFixed(1)
-      .replace(".0", "")}K`;
+    return `${(value / 1000).toFixed(1).replace(".0", "")}K`;
   }
 
   return value.toLocaleString("id-ID");
@@ -110,8 +104,7 @@ export default function Home() {
   const [photoData, setPhotoData] = useState<PhotoData | null>(null);
   const [photoIndex, setPhotoIndex] = useState(0);
 
-  const activePhoto =
-    photoData?.photos?.[photoIndex] || null;
+  const activePhoto = photoData?.photos?.[photoIndex] || null;
 
   const photoDownloadHref = useMemo(() => {
     if (!activePhoto) return null;
@@ -124,12 +117,9 @@ export default function Home() {
     )}&username=${encodeURIComponent(username)}`;
   }, [activePhoto, photoData]);
 
-  async function requestJson(
-    endpoint: string,
-    targetUrl: string
-  ) {
+  async function requestJson(endpoint: string) {
     const response = await fetch(
-      `${endpoint}?url=${encodeURIComponent(targetUrl)}`,
+      `${endpoint}?url=${encodeURIComponent(url.trim())}`,
       {
         method: "GET",
         cache: "no-store",
@@ -137,9 +127,7 @@ export default function Home() {
     );
 
     const result =
-      (await response
-        .json()
-        .catch(() => null)) as ApiResponse | null;
+      (await response.json().catch(() => null)) as ApiResponse | null;
 
     return {
       response,
@@ -155,9 +143,7 @@ export default function Home() {
     const value = url.trim();
 
     if (!value) {
-      setError(
-        "Masukkan tautan TikTok terlebih dahulu."
-      );
+      setError("Masukkan tautan TikTok terlebih dahulu.");
       return;
     }
 
@@ -168,15 +154,14 @@ export default function Home() {
     setPhotoIndex(0);
 
     try {
-      const photoUrl = isPhotoUrl(value);
-      const shortUrl = isShortTikTokUrl(value);
+      const shouldTrySlideshow =
+        isPhotoUrl(value) ||
+        isShortTikTokUrl(value);
 
-      if (photoUrl || shortUrl) {
-        const slideshow =
-          await requestJson(
-            "/api/tiktok-slideshow",
-            value
-          );
+      if (shouldTrySlideshow) {
+        const slideshow = await requestJson(
+          "/api/tiktok-slideshow"
+        );
 
         if (
           slideshow.response.ok &&
@@ -184,55 +169,27 @@ export default function Home() {
           slideshow.result.type === "photo" &&
           slideshow.result.data &&
           "photos" in slideshow.result.data &&
-          Array.isArray(
-            slideshow.result.data.photos
-          ) &&
+          Array.isArray(slideshow.result.data.photos) &&
           slideshow.result.data.photos.length > 0
         ) {
           setPhotoData(
             slideshow.result.data as PhotoData
           );
+          setLoading(false);
           return;
         }
 
-        if (photoUrl) {
+        if (isPhotoUrl(value)) {
           throw new Error(
             slideshow.result?.error ||
               "Gagal mendapatkan slideshow TikTok."
           );
         }
-
-        if (
-          shortUrl &&
-          !slideshow.response.ok &&
-          slideshow.result?.error
-        ) {
-          const video =
-            await requestJson(
-              "/api/tiktok",
-              value
-            );
-
-          if (
-            video.response.ok &&
-            video.result?.ok &&
-            video.result.data
-          ) {
-            setData(video.result.data);
-            return;
-          }
-
-          throw new Error(
-            slideshow.result.error
-          );
-        }
       }
 
-      const video =
-        await requestJson(
-          "/api/tiktok",
-          value
-        );
+      const video = await requestJson(
+        "/api/tiktok"
+      );
 
       if (
         !video.response.ok ||
@@ -285,8 +242,7 @@ export default function Home() {
     );
   }
 
-  const displayData =
-    photoData || data;
+  const displayData = photoData || data;
 
   const hashtags =
     displayData?.hashtags?.length
@@ -296,9 +252,7 @@ export default function Home() {
   return (
     <main className="site-page">
       <section className="hero-section">
-        <div className="brand-badge">
-          VIDZLY
-        </div>
+        <div className="brand-badge">VIDZLY</div>
 
         <h1>TikTok Downloader</h1>
 
@@ -336,9 +290,7 @@ export default function Home() {
               className="main-download-button"
               disabled={loading}
             >
-              {loading
-                ? "Memproses..."
-                : "Unduh"}
+              {loading ? "Memproses..." : "Unduh"}
             </button>
           </form>
 
@@ -348,15 +300,10 @@ export default function Home() {
 
           {error && (
             <div className="error-box">
-              <div className="error-icon">
-                !
-              </div>
+              <div className="error-icon">!</div>
 
               <div>
-                <strong>
-                  Gagal memproses media
-                </strong>
-
+                <strong>Gagal memproses media</strong>
                 <p>{error}</p>
               </div>
             </div>
@@ -399,13 +346,8 @@ export default function Home() {
                   data.downloadUrl
                 )}`}
               >
-                <span className="download-icon">
-                  ↓
-                </span>
-
-                <span>
-                  Download VT
-                </span>
+                <span className="download-icon">↓</span>
+                <span>Download VT</span>
               </a>
             )}
           </div>
@@ -451,31 +393,26 @@ export default function Home() {
 
             {photoData.photos.length > 1 && (
               <div className="photo-indicators">
-                {photoData.photos.map(
-                  (_, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      className={
-                        index === photoIndex
-                          ? "photo-dot active"
-                          : "photo-dot"
-                      }
-                      onClick={() =>
-                        setPhotoIndex(index)
-                      }
-                      aria-label={`Foto ${
-                        index + 1
-                      }`}
-                    />
-                  )
-                )}
+                {photoData.photos.map((_, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    className={
+                      index === photoIndex
+                        ? "photo-dot active"
+                        : "photo-dot"
+                    }
+                    onClick={() =>
+                      setPhotoIndex(index)
+                    }
+                    aria-label={`Foto ${index + 1}`}
+                  />
+                ))}
               </div>
             )}
 
             <div className="photo-counter">
-              {photoIndex + 1} /{" "}
-              {photoData.photos.length}
+              {photoIndex + 1} / {photoData.photos.length}
             </div>
 
             {photoDownloadHref && (
@@ -484,13 +421,8 @@ export default function Home() {
                 href={photoDownloadHref}
                 download
               >
-                <span className="download-icon">
-                  ↓
-                </span>
-
-                <span>
-                  Download Foto
-                </span>
+                <span className="download-icon">↓</span>
+                <span>Download Foto</span>
               </a>
             )}
           </div>
@@ -518,11 +450,9 @@ export default function Home() {
                 />
               ) : (
                 <div className="avatar-placeholder">
-                  {(
-                    displayData.author?.nickname ||
+                  {(displayData.author?.nickname ||
                     displayData.author?.username ||
-                    "T"
-                  )[0].toUpperCase()}
+                    "T")[0].toUpperCase()}
                 </div>
               )}
             </div>
@@ -555,7 +485,6 @@ export default function Home() {
                   displayData.stats?.views
                 )}
               </strong>
-
               <span>Views</span>
             </div>
 
@@ -565,7 +494,6 @@ export default function Home() {
                   displayData.stats?.likes
                 )}
               </strong>
-
               <span>Likes</span>
             </div>
 
@@ -575,7 +503,6 @@ export default function Home() {
                   displayData.stats?.comments
                 )}
               </strong>
-
               <span>Komentar</span>
             </div>
 
@@ -585,7 +512,6 @@ export default function Home() {
                   displayData.stats?.shares
                 )}
               </strong>
-
               <span>Repost</span>
             </div>
           </div>
@@ -596,30 +522,18 @@ export default function Home() {
                 Caption
               </div>
 
-              <p>
-                {displayData.description}
-              </p>
+              <p>{displayData.description}</p>
             </div>
           )}
 
           {hashtags.length > 0 && (
             <div className="hashtag-list">
-              {hashtags.map(
-                (tag, index) => (
-                  <span
-                    key={
-                      tag.hashtagId ||
-                      index
-                    }
-                  >
-                    #
-                    {tag.hashtagName?.replace(
-                      /^#/,
-                      ""
-                    )}
-                  </span>
-                )
-              )}
+              {hashtags.map((tag, index) => (
+                <span key={tag.hashtagId || index}>
+                  #
+                  {tag.hashtagName?.replace(/^#/, "")}
+                </span>
+              ))}
             </div>
           )}
         </section>
