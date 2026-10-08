@@ -50,17 +50,27 @@ function formatNumber(value?: number) {
     return "-";
   }
 
-  return new Intl.NumberFormat("en-US", {
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
+  return new Intl.NumberFormat(
+    "en-US",
+    {
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }
+  ).format(value);
 }
 
 export default function Home() {
-  const [url, setUrl] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [url, setUrl] =
+    useState("");
+
+  const [loading, setLoading] =
+    useState(false);
+
   const [result, setResult] =
-    useState<ApiResponse | null>(null);
+    useState<ApiResponse | null>(
+      null
+    );
+
   const [videoError, setVideoError] =
     useState(false);
 
@@ -69,7 +79,8 @@ export default function Home() {
   ) {
     event.preventDefault();
 
-    const cleanUrl = url.trim();
+    const cleanUrl =
+      url.trim();
 
     if (!cleanUrl) {
       return;
@@ -80,15 +91,16 @@ export default function Home() {
     setVideoError(false);
 
     try {
-      const response = await fetch(
-        `/api/tiktok?url=${encodeURIComponent(
-          cleanUrl
-        )}`,
-        {
-          method: "GET",
-          cache: "no-store",
-        }
-      );
+      const response =
+        await fetch(
+          `/api/tiktok?url=${encodeURIComponent(
+            cleanUrl
+          )}`,
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
 
       const data: ApiResponse =
         await response.json();
@@ -105,19 +117,20 @@ export default function Home() {
     }
   }
 
-  const data = result?.data;
+  const data =
+    result?.data;
 
-  const proxyVideoUrl =
-    data?.downloadUrl
-      ? `/api/download?url=${encodeURIComponent(
-          data.downloadUrl
+  const resolvedVideoUrl =
+    data?.resolvedUrl
+      ? `/api/download?videoUrl=${encodeURIComponent(
+          data.resolvedUrl
         )}`
       : null;
 
   const downloadVideoUrl =
-    data?.downloadUrl
-      ? `/api/download?url=${encodeURIComponent(
-          data.downloadUrl
+    data?.resolvedUrl
+      ? `/api/download?videoUrl=${encodeURIComponent(
+          data.resolvedUrl
         )}&download=1`
       : null;
 
@@ -145,7 +158,9 @@ export default function Home() {
 
           <form
             className="form"
-            onSubmit={handleSubmit}
+            onSubmit={
+              handleSubmit
+            }
           >
             <input
               className="input"
@@ -188,7 +203,7 @@ export default function Home() {
           {data && (
             <section className="result">
 
-              {proxyVideoUrl && (
+              {resolvedVideoUrl && (
                 <div className="video-wrapper">
 
                   <video
@@ -200,18 +215,25 @@ export default function Home() {
                       data.cover ||
                       undefined
                     }
-                    src={proxyVideoUrl}
+                    src={
+                      resolvedVideoUrl
+                    }
                     onError={() =>
-                      setVideoError(true)
+                      setVideoError(
+                        true
+                      )
                     }
                   />
 
                   {videoError && (
                     <div className="video-error">
-                      Video gagal dimuat
-                      dari provider.
+                      Video gagal
+                      dimuat.
+
                       <br />
-                      Coba tekan tombol
+
+                      Coba tekan
+                      tombol
                       <strong>
                         {" "}
                         Download MP4
@@ -243,13 +265,18 @@ export default function Home() {
                 {data.author?.username && (
                   <div className="username">
                     @
-                    {data.author.username}
+                    {
+                      data.author
+                        .username
+                    }
                   </div>
                 )}
 
                 {data.description && (
                   <p className="description">
-                    {data.description}
+                    {
+                      data.description
+                    }
                   </p>
                 )}
 
@@ -262,7 +289,8 @@ export default function Home() {
 
                     <strong>
                       {formatNumber(
-                        data.stats?.views
+                        data.stats
+                          ?.views
                       )}
                     </strong>
                   </div>
@@ -274,7 +302,8 @@ export default function Home() {
 
                     <strong>
                       {formatNumber(
-                        data.stats?.likes
+                        data.stats
+                          ?.likes
                       )}
                     </strong>
                   </div>
@@ -286,7 +315,8 @@ export default function Home() {
 
                     <strong>
                       {formatNumber(
-                        data.stats?.comments
+                        data.stats
+                          ?.comments
                       )}
                     </strong>
                   </div>
@@ -298,7 +328,8 @@ export default function Home() {
 
                     <strong>
                       {formatNumber(
-                        data.stats?.shares
+                        data.stats
+                          ?.shares
                       )}
                     </strong>
                   </div>
@@ -315,14 +346,15 @@ export default function Home() {
                     </div>
 
                     <div className="download-subtitle">
-                      Format MP4
+                      Video + Audio
                     </div>
                   </div>
 
                   <a
                     className="download-button"
-                    href={downloadVideoUrl}
-                    download="tiktok-video.mp4"
+                    href={
+                      downloadVideoUrl
+                    }
                   >
                     Download MP4
                   </a>
@@ -331,10 +363,14 @@ export default function Home() {
               )}
 
               {data.hashtags &&
-                data.hashtags.length > 0 && (
+                data.hashtags.length >
+                  0 && (
                   <div className="hashtags">
                     {data.hashtags.map(
-                      (hashtag, index) => (
+                      (
+                        hashtag,
+                        index
+                      ) => (
                         <span
                           key={
                             hashtag.hashtagId ||
@@ -352,12 +388,11 @@ export default function Home() {
                 )}
 
               <div className="note">
-                URL TikTok diproses oleh
-                server Next.js terlebih
-                dahulu. File video kemudian
-                di-proxy melalui server agar
-                browser tidak perlu mengakses
-                provider secara langsung.
+                Video diproses melalui
+                server Next.js. Setiap
+                pemutaran dan download
+                meminta URL video baru
+                dari provider.
               </div>
 
             </section>
@@ -366,8 +401,9 @@ export default function Home() {
         </section>
 
         <div className="footer">
-          Gunakan hanya untuk konten yang
-          kamu berhak unduh.
+          Gunakan hanya untuk
+          konten yang kamu
+          berhak unduh.
         </div>
 
       </div>

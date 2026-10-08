@@ -1,79 +1,139 @@
 import { NextRequest, NextResponse } from "next/server";
+import { fetchTikTokMedia } from "@/lib/rapidapi";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ALLOWED_HOST = "robotilab.online";
-
-export async function GET(request: NextRequest) {
-  const downloadUrl =
-    request.nextUrl.searchParams.get("url");
+export async function GET(
+  request: NextRequest
+) {
+  const videoUrl =
+    request.nextUrl.searchParams
+      .get("videoUrl")
+      ?.trim();
 
   const download =
-    request.nextUrl.searchParams.get("download") === "1";
+    request.nextUrl.searchParams.get(
+      "download"
+    ) === "1";
 
-  if (!downloadUrl) {
+  if (!videoUrl) {
     return NextResponse.json(
       {
         ok: false,
-        error: "Download URL wajib diisi.",
+        error:
+          "Video URL wajib diisi.",
       },
       { status: 400 }
     );
   }
 
   try {
-    const parsed = new URL(downloadUrl);
+    const parsedUrl =
+      new URL(videoUrl);
+
+    const hostname =
+      parsedUrl.hostname.toLowerCase();
 
     if (
-      parsed.protocol !== "https:" ||
-      parsed.hostname !== ALLOWED_HOST
+      hostname !== "tiktok.com" &&
+      !hostname.endsWith(".tiktok.com")
     ) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Download URL tidak diizinkan.",
+          error:
+            "URL video tidak valid.",
         },
         { status: 400 }
       );
     }
 
-    const response = await fetch(downloadUrl, {
-      method: "GET",
-      redirect: "follow",
-      cache: "no-store",
-      headers: {
-        Accept:
-          "video/mp4,video/*;q=0.9,*/*;q=0.8",
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140 Safari/537.36",
-      },
-    });
+    const media =
+      await fetchTikTokMedia(
+        videoUrl
+      );
 
-    if (!response.ok || !response.body) {
+    if (!media.downloadUrl) {
       return NextResponse.json(
         {
           ok: false,
-          error: `Download server HTTP ${response.status}`,
+          error:
+            "Provider tidak memberikan download URL.",
         },
         { status: 502 }
       );
     }
 
-    const headers = new Headers();
+    const response =
+      await fetch(
+        media.downloadUrl,
+        {
+          method: "GET",
+          redirect: "follow",
+          cache: "no-store",
+          headers: {
+            Accept:
+              "video/mp4,video/*;q=0.9,*/*;q=0.8",
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140 Safari/537.36",
+          },
+        }
+      );
+
+    if (
+      !response.ok ||
+      !response.body
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            `Provider video HTTP ${response.status}`,
+        },
+        { status: 502 }
+      );
+    }
 
     const contentType =
-      response.headers.get("content-type");
+      response.headers.get(
+        "content-type"
+      ) || "";
+
+    if (
+      contentType.includes(
+        "application/json"
+      )
+    ) {
+      const errorBody =
+        await response.text();
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Provider mengembalikan response JSON, bukan file video.",
+          details:
+            errorBody.slice(0, 300),
+        },
+        { status: 502 }
+      );
+    }
+
+    const headers =
+      new Headers();
 
     headers.set(
       "Content-Type",
-      contentType?.includes("video")
+      contentType.includes("video")
         ? contentType
         : "video/mp4"
     );
 
     const contentLength =
-      response.headers.get("content-length");
+      response.headers.get(
+        "content-length"
+      );
 
     if (contentLength) {
       headers.set(
@@ -82,12 +142,17 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    headers.set(
-      "Content-Disposition",
-      download
-        ? 'attachment; filename="tiktok-video.mp4"'
-        : "inline"
-    );
+    if (download) {
+      headers.set(
+        "Content-Disposition",
+        'attachment; filename="tiktok-video.mp4"'
+      );
+    } else {
+      headers.set(
+        "Content-Disposition",
+        "inline"
+      );
+    }
 
     headers.set(
       "Cache-Control",
@@ -106,12 +171,14 @@ export async function GET(request: NextRequest) {
         headers,
       }
     );
-  } catch {
+  } catch (error) {
     return NextResponse.json(
       {
         ok: false,
         error:
-          "Gagal mengambil file video dari server provider.",
+          error instanceof Error
+            ? error.message
+            : "Gagal mengambil video.",
       },
       { status: 502 }
     );
