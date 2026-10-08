@@ -1,106 +1,110 @@
-import { NextRequest, NextResponse } from "next/server";
-import { fetchTikTokMedia } from "@/lib/rapidapi";
+const RAPIDAPI_HOST =
+  process.env.RAPIDAPI_HOST ||
+  "tiktok-video-downloader-api.p.rapidapi.com";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
 
-function isTikTokUrl(value: string): boolean {
-  try {
-    const parsed = new URL(value);
-    const hostname = parsed.hostname.toLowerCase();
+export type TikTokData = {
+  id?: string;
 
-    return (
-      hostname === "tiktok.com" ||
-      hostname.endsWith(".tiktok.com")
+  author?: {
+    username?: string;
+    nickname?: string;
+    verified?: boolean;
+    signature?: string;
+    avatar?: string;
+    id?: string;
+  };
+
+  description?: string;
+
+  cover?: string;
+
+  stats?: {
+    likes?: number;
+    comments?: number;
+    views?: number;
+    shares?: number;
+    saves?: number;
+  };
+
+  hashtags?: Array<{
+    hashtagId?: string;
+    hashtagName?: string;
+  }>;
+
+  locationCreated?: string;
+
+  downloadUrl?: string;
+};
+
+export async function fetchTikTokMedia(
+  videoUrl: string
+): Promise<TikTokData> {
+  if (!RAPIDAPI_KEY) {
+    throw new Error(
+      "RAPIDAPI_KEY belum dikonfigurasi di environment."
     );
-  } catch {
-    return false;
   }
-}
 
-async function resolveTikTokUrl(url: string): Promise<string> {
-  const response = await fetch(url, {
+  if (!videoUrl) {
+    throw new Error(
+      "URL TikTok tidak boleh kosong."
+    );
+  }
+
+  const endpoint =
+    `https://${RAPIDAPI_HOST}/media?videoUrl=${encodeURIComponent(
+      videoUrl
+    )}`;
+
+  const response = await fetch(endpoint, {
     method: "GET",
-    redirect: "manual",
     headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140 Safari/537.36",
-      Accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "x-rapidapi-key": RAPIDAPI_KEY,
+      "x-rapidapi-host": RAPIDAPI_HOST,
+      Accept: "application/json",
     },
     cache: "no-store",
   });
 
-  const location = response.headers.get("location");
+  const text = await response.text();
 
-  if (location) {
-    const resolvedUrl = new URL(location, url).toString();
-
-    if (isTikTokUrl(resolvedUrl)) {
-      return resolvedUrl;
-    }
-  }
-
-  if (response.url && isTikTokUrl(response.url)) {
-    return response.url;
-  }
-
-  return url;
-}
-
-export async function GET(request: NextRequest) {
-  const url = request.nextUrl.searchParams.get("url")?.trim();
-
-  if (!url) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "Parameter url wajib diisi.",
-      },
-      { status: 400 }
-    );
-  }
-
-  if (!isTikTokUrl(url)) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "URL TikTok tidak valid.",
-      },
-      { status: 400 }
-    );
-  }
+  let data: unknown;
 
   try {
-    const resolvedUrl = await resolveTikTokUrl(url);
-
-    const data = await fetchTikTokMedia(resolvedUrl);
-
-    return NextResponse.json({
-      ok: true,
-      data: {
-        id: data.id ?? null,
-        author: data.author ?? null,
-        description: data.description ?? null,
-        cover: data.cover ?? null,
-        stats: data.stats ?? null,
-        hashtags: data.hashtags ?? [],
-        locationCreated: data.locationCreated ?? null,
-        downloadUrl: data.downloadUrl,
-        originalUrl: url,
-        resolvedUrl,
-      },
-    });
-  } catch (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Terjadi kesalahan pada server.",
-      },
-      { status: 502 }
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(
+      `RapidAPI mengembalikan response bukan JSON. HTTP ${response.status}`
     );
   }
+
+  if (!response.ok) {
+    throw new Error(
+      `RapidAPI HTTP ${response.status}: ${JSON.stringify(
+        data
+      ).slice(0, 500)}`
+    );
+  }
+
+  if (
+    typeof data !== "object" ||
+    data === null ||
+    Array.isArray(data)
+  ) {
+    throw new Error(
+      "Format response RapidAPI tidak valid."
+    );
+  }
+
+  const result = data as TikTokData;
+
+  if (!result.downloadUrl) {
+    throw new Error(
+      "RapidAPI berhasil merespons tetapi downloadUrl tidak ditemukan."
+    );
+  }
+
+  return result;
 }
