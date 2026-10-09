@@ -383,21 +383,63 @@ export function normalizeMedia(payload: unknown, inputUrl: string): TikTokMedia 
   };
 }
 
-export async function fetchTikTokMedia(inputUrl: string) {
-  const key = process.env.RAPIDAPI_KEY;
-  const host = process.env.RAPIDAPI_HOST || DEFAULT_HOST;
-  const rawPath = (process.env.RAPIDAPI_PATH || "/index").trim();
-  const path = rawPath.startsWith("/") ? rawPath : `/${rawPath}`;
+const POST_PATH = /^\/@[^/]+\/(video|photo)\/\d+/;
+const USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
 
-  if (!key) {
-    throw new ProviderError(
-      "RAPIDAPI_KEY belum dikonfigurasi di environment.",
-      500
-    );
+function normalizePath(value: string) {
+  const trimmed = value.trim();
+
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
+
+async function resolvePostUrl(inputUrl: string) {
+  let current = inputUrl;
+
+  for (let i = 0; i < 5; i++) {
+    let parsed: URL;
+
+    try {
+      parsed = new URL(current);
+    } catch {
+      return inputUrl;
+    }
+
+    if (POST_PATH.test(parsed.pathname)) {
+      return `${parsed.origin}${parsed.pathname}`;
+    }
+
+    try {
+      const response = await fetch(current, {
+        method: "GET",
+        redirect: "manual",
+        cache: "no-store",
+        headers: { "User-Agent": USER_AGENT, Accept: "text/html,*/*" },
+      });
+
+      const location = response.headers.get("location");
+
+      if (!location) {
+        return inputUrl;
+      }
+
+      current = new URL(location, current).toString();
+    } catch {
+      return inputUrl;
+    }
   }
 
+  return inputUrl;
+}
+
+async function callProvider(
+  host: string,
+  key: string,
+  path: string,
+  targetUrl: string
+) {
   const response = await fetch(
-    `https://${host}${path}?url=${encodeURIComponent(inputUrl)}`,
+    `https://${host}${path}?url=${encodeURIComponent(targetUrl)}`,
     {
       method: "GET",
       headers: {
@@ -429,14 +471,61 @@ export async function fetchTikTokMedia(inputUrl: string) {
         ? payload.message
         : `Provider HTTP ${response.status}`;
 
-    console.error(`[rapidapi] ${response.status} ${host}${path}:`, text.slice(0, 300));
+    console.error(
+      `[rapidapi] ${response.status} ${host}${path}:`,
+      text.slice(0, 300)
+    );
 
     throw new ProviderError(
       message,
-      response.status === 429 ? 429 : 502,
+      response.status === 429 ? 429 : response.status === 403 ? 403 : 502,
       text.slice(0, 500)
     );
   }
 
-  return normalizeMedia(payload, inputUrl);
+  return payload;
+}
+
+export async function fetchTikTokMedia(inputUrl: string) {
+  const key = process.env.RAPIDAPI_KEY;
+  const host = process.env.RAPIDAPI_HOST || DEFAULT_HOST;
+
+  if (!key) {
+    throw new ProviderError(
+      "RAPIDAPI_KEY belum dikonfigurasi di environment.",
+      500
+    );
+  }
+
+  const videoPath = normalizePath(process.env.RAPIDAPI_VIDEO_PATH || "/vid/index");
+  const photoPath = normalizePath(process.env.RAPIDAPI_PHOTO_PATH || "/index");
+
+  const targetUrl = await resolvePostUrl(inputUrl);
+  const isPhoto = /\/photo\/\d+/.test(targetUrl);
+  const order = isPhoto ? [photoPath, videoPath] : [videoPath, photoPath];
+
+  let lastError: ProviderError | null = null;
+
+  for (const path of order) {
+    try {
+      const payload = await callProvider(host, key, path, targetUrl);
+
+      return normalizeMedia(payload, targetUrl);
+    } catch (error) {
+      const failure =
+        error instanceof ProviderError
+          ? error
+          : new ProviderError(
+              error instanceof Error ? error.message : "Gagal memanggil provider."
+            );
+
+      if (failure.status === 429 || failure.status === 403 || failure.status === 500) {
+        throw failure;
+      }
+
+      lastError = failure;
+    }
+  }
+
+  throw lastError ?? new ProviderError("Gagal memanggil provider.");
 }
