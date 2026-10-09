@@ -1,162 +1,438 @@
-const RAPIDAPI_HOST =
-  process.env.RAPIDAPI_HOST ||
-  "tiktok-video-downloader-api.p.rapidapi.com";
+const DEFAULT_HOST =
+  "tiktok-downloader-download-tiktok-videos-without-watermark.p.rapidapi.com";
 
-const RAPIDAPI_KEY =
-  process.env.RAPIDAPI_KEY;
+type Json = Record<string, unknown>;
 
-export type TikTokData = {
-  id?: string;
-
-  author?: {
-    username?: string;
-    nickname?: string;
-    verified?: boolean;
-    signature?: string;
-    avatar?: string;
-    id?: string;
+export type TikTokMedia = {
+  id: string | null;
+  type: "video" | "photo";
+  author: {
+    username: string | null;
+    nickname: string | null;
+    avatar: string | null;
   };
-
-  description?: string;
-
-  cover?: string;
-
-  stats?: {
-    likes?: number;
-    comments?: number;
-    views?: number;
-    shares?: number;
-    saves?: number;
+  description: string;
+  cover: string | null;
+  stats: {
+    likes: number;
+    comments: number;
+    shares: number;
+    views: number;
   };
-
-  hashtags?: Array<{
-    hashtagId?: string;
-    hashtagName?: string;
-  }>;
-
-  locationCreated?: string;
-
-  downloadUrl?: string;
+  videoUrl: string | null;
+  photos: string[];
 };
 
-export async function fetchTikTokMedia(
-  videoUrl: string
-): Promise<TikTokData> {
-  if (!RAPIDAPI_KEY) {
-    throw new Error(
-      "RAPIDAPI_KEY belum dikonfigurasi di environment."
-    );
+export class ProviderError extends Error {
+  status: number;
+  detail?: string;
+
+  constructor(message: string, status = 502, detail?: string) {
+    super(message);
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
+function isObj(value: unknown): value is Json {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function str(value: unknown) {
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
   }
 
-  if (!videoUrl) {
-    throw new Error(
-      "URL TikTok tidak boleh kosong."
-    );
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
   }
 
-  let parsedUrl: URL;
+  return undefined;
+}
 
+function num(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return undefined;
+}
+
+const URL_KEYS = [
+  "url",
+  "urlList",
+  "url_list",
+  "uri_list",
+  "src",
+  "imageURL",
+  "imageUrl",
+  "image_url",
+  "display_image",
+  "download_url",
+  "downloadUrl",
+  "play_addr",
+  "playAddr",
+  "download_addr",
+  "downloadAddr",
+];
+
+function firstUrl(value: unknown, depth = 0): string | undefined {
+  if (depth > 5) {
+    return undefined;
+  }
+
+  if (typeof value === "string") {
+    return /^https?:\/\//i.test(value.trim()) ? value.trim() : undefined;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = firstUrl(item, depth + 1);
+
+      if (found) {
+        return found;
+      }
+    }
+
+    return undefined;
+  }
+
+  if (isObj(value)) {
+    for (const key of URL_KEYS) {
+      if (key in value) {
+        const found = firstUrl(value[key], depth + 1);
+
+        if (found) {
+          return found;
+        }
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function pickUrl(sources: Json[], keys: string[]) {
+  for (const source of sources) {
+    for (const key of keys) {
+      if (key in source) {
+        const found = firstUrl(source[key]);
+
+        if (found) {
+          return found;
+        }
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function pickStr(sources: Json[], keys: string[]) {
+  for (const source of sources) {
+    for (const key of keys) {
+      const found = str(source[key]);
+
+      if (found) {
+        return found;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function pickNum(sources: Json[], keys: string[]) {
+  for (const source of sources) {
+    for (const key of keys) {
+      const found = num(source[key]);
+
+      if (found !== undefined) {
+        return found;
+      }
+    }
+  }
+
+  return 0;
+}
+
+function pickObj(sources: Json[], keys: string[]) {
+  for (const source of sources) {
+    for (const key of keys) {
+      if (isObj(source[key])) {
+        return source[key] as Json;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function unwrap(payload: unknown) {
+  let current: unknown = payload;
+
+  for (let i = 0; i < 4; i++) {
+    if (!isObj(current)) {
+      break;
+    }
+
+    const next = ["data", "result", "response", "item", "aweme_detail"]
+      .map((key) => current && (current as Json)[key])
+      .find((value) => isObj(value));
+
+    if (!next) {
+      break;
+    }
+
+    current = next;
+  }
+
+  return isObj(current) ? current : undefined;
+}
+
+function extractPhotos(root: Json, extra: Json[]) {
+  const keys = [
+    "images",
+    "image_post",
+    "imagePost",
+    "photos",
+    "slides",
+    "image_urls",
+    "imageUrls",
+    "pictures",
+  ];
+
+  for (const source of [root, ...extra]) {
+    for (const key of keys) {
+      let list: unknown = source[key];
+
+      if (isObj(list)) {
+        list = list.images ?? list.photos ?? list.list;
+      }
+
+      if (Array.isArray(list)) {
+        const urls = list
+          .map((item) => firstUrl(item))
+          .filter((item): item is string => Boolean(item));
+
+        if (urls.length > 0) {
+          return Array.from(new Set(urls));
+        }
+      }
+    }
+  }
+
+  return [];
+}
+
+function usernameFromUrl(value: string) {
   try {
-    parsedUrl = new URL(videoUrl);
+    const match = new URL(value).pathname.match(/^\/@([^/]+)/);
+
+    return match?.[1] ? decodeURIComponent(match[1]) : undefined;
   } catch {
-    throw new Error(
-      "URL TikTok yang dikirim ke RapidAPI tidak valid."
+    return undefined;
+  }
+}
+
+export function normalizeMedia(payload: unknown, inputUrl: string): TikTokMedia {
+  const root = unwrap(payload);
+
+  if (!root) {
+    throw new ProviderError("Format response provider tidak dikenali.");
+  }
+
+  const videoObj = pickObj([root], ["video", "video_info", "videoInfo"]);
+  const authorRaw =
+    root.author ?? root.user ?? root.authorInfo ?? root.author_info;
+  const authorObj = isObj(authorRaw) ? authorRaw : undefined;
+  const statsObj = pickObj(
+    [root],
+    ["stats", "statistics", "statistic", "stat", "statsV2"]
+  );
+
+  const mediaSources: Json[] = [root];
+
+  if (videoObj) {
+    mediaSources.push(videoObj);
+  }
+
+  const photos = extractPhotos(root, videoObj ? [videoObj] : []);
+
+  const videoUrl =
+    pickUrl(mediaSources, [
+      "nowm",
+      "no_watermark",
+      "noWatermark",
+      "hdplay",
+      "play",
+      "play_url",
+      "playUrl",
+      "playAddr",
+      "play_addr",
+      "video_url",
+      "videoUrl",
+      "download",
+      "downloadUrl",
+      "download_url",
+      "video",
+      "url",
+    ]) ?? null;
+
+  if (photos.length === 0 && !videoUrl) {
+    throw new ProviderError(
+      "Media tidak ditemukan pada response provider.",
+      502,
+      JSON.stringify(payload).slice(0, 1500)
     );
   }
 
-  if (
-    !parsedUrl.hostname
-      .toLowerCase()
-      .includes("tiktok.com")
-  ) {
-    throw new Error(
-      "URL yang dikirim ke RapidAPI bukan URL TikTok."
+  const authorSources = authorObj ? [authorObj] : [];
+
+  const username =
+    pickStr(authorSources, [
+      "unique_id",
+      "uniqueId",
+      "username",
+      "user_name",
+      "handle",
+    ]) ??
+    (typeof authorRaw === "string" ? authorRaw.replace(/^@/, "") : undefined) ??
+    pickStr([root], ["unique_id", "uniqueId", "username", "author_username"]) ??
+    usernameFromUrl(inputUrl) ??
+    null;
+
+  const nickname =
+    pickStr(authorSources, ["nickname", "nick_name", "name", "display_name"]) ??
+    pickStr([root], ["nickname", "author_name", "authorName"]) ??
+    null;
+
+  const avatar =
+    pickUrl(authorSources.length ? authorSources : [root], [
+      "avatar",
+      "avatar_thumb",
+      "avatarThumb",
+      "avatar_medium",
+      "avatarMedium",
+      "avatar_larger",
+      "avatarLarger",
+      "avatar_url",
+    ]) ?? null;
+
+  const statSources = statsObj ? [statsObj, root] : [root];
+
+  const cover =
+    pickUrl(mediaSources, [
+      "cover",
+      "origin_cover",
+      "originCover",
+      "dynamic_cover",
+      "dynamicCover",
+      "thumbnail",
+      "thumb",
+      "poster",
+    ]) ??
+    photos[0] ??
+    null;
+
+  return {
+    id: pickStr([root], ["id", "aweme_id", "awemeId", "video_id", "videoId"]) ?? null,
+    type: photos.length > 0 ? "photo" : "video",
+    author: { username, nickname, avatar },
+    description:
+      pickStr([root], ["title", "desc", "description", "caption", "text"]) ?? "",
+    cover,
+    stats: {
+      likes: pickNum(statSources, [
+        "digg_count",
+        "diggCount",
+        "like_count",
+        "likeCount",
+        "likes",
+      ]),
+      comments: pickNum(statSources, [
+        "comment_count",
+        "commentCount",
+        "comments",
+      ]),
+      shares: pickNum(statSources, [
+        "share_count",
+        "shareCount",
+        "repost_count",
+        "repostCount",
+        "shares",
+      ]),
+      views: pickNum(statSources, [
+        "play_count",
+        "playCount",
+        "view_count",
+        "viewCount",
+        "views",
+      ]),
+    },
+    videoUrl: photos.length > 0 ? null : videoUrl,
+    photos,
+  };
+}
+
+export async function fetchTikTokMedia(inputUrl: string) {
+  const key = process.env.RAPIDAPI_KEY;
+  const host = process.env.RAPIDAPI_HOST || DEFAULT_HOST;
+
+  if (!key) {
+    throw new ProviderError(
+      "RAPIDAPI_KEY belum dikonfigurasi di environment.",
+      500
     );
   }
-
-  const endpoint =
-    `https://${RAPIDAPI_HOST}/media?videoUrl=${encodeURIComponent(
-      videoUrl
-    )}`;
 
   const response = await fetch(
-    endpoint,
+    `https://${host}/index?url=${encodeURIComponent(inputUrl)}`,
     {
       method: "GET",
       headers: {
-        "x-rapidapi-key":
-          RAPIDAPI_KEY,
-
-        "x-rapidapi-host":
-          RAPIDAPI_HOST,
-
-        Accept:
-          "application/json",
-
-        "User-Agent":
-          "Mozilla/5.0",
+        "X-Rapidapi-Key": key,
+        "X-Rapidapi-Host": host,
+        Accept: "application/json",
       },
-
       cache: "no-store",
     }
   );
 
-  const text =
-    await response.text();
+  const text = await response.text();
 
-  let data: unknown;
+  let payload: unknown;
 
   try {
-    data = JSON.parse(text);
+    payload = JSON.parse(text);
   } catch {
-    throw new Error(
-      `RapidAPI mengembalikan response bukan JSON. HTTP ${response.status}: ${text.slice(
-        0,
-        500
-      )}`
+    throw new ProviderError(
+      `Provider mengembalikan response bukan JSON (HTTP ${response.status}).`,
+      502,
+      text.slice(0, 500)
     );
   }
 
   if (!response.ok) {
-    const errorMessage =
-      typeof data === "object" &&
-      data !== null &&
-      "error" in data &&
-      typeof (
-        data as {
-          error?: unknown;
-        }
-      ).error === "string"
-        ? (
-            data as {
-              error: string;
-            }
-          ).error
-        : JSON.stringify(data);
+    const message =
+      isObj(payload) && typeof payload.message === "string"
+        ? payload.message
+        : `Provider HTTP ${response.status}`;
 
-    throw new Error(
-      `RapidAPI HTTP ${response.status}: ${errorMessage}`
+    throw new ProviderError(
+      message,
+      response.status === 429 ? 429 : 502,
+      text.slice(0, 500)
     );
   }
 
-  if (
-    typeof data !== "object" ||
-    data === null ||
-    Array.isArray(data)
-  ) {
-    throw new Error(
-      "Format response RapidAPI tidak valid."
-    );
-  }
-
-  const result =
-    data as TikTokData;
-
-  if (!result.downloadUrl) {
-    throw new Error(
-      "RapidAPI berhasil merespons tetapi downloadUrl tidak ditemukan."
-    );
-  }
-
-  return result;
+  return normalizeMedia(payload, inputUrl);
 }
