@@ -386,6 +386,8 @@ export function normalizeMedia(payload: unknown, inputUrl: string): TikTokMedia 
 export async function fetchTikTokMedia(inputUrl: string) {
   const key = process.env.RAPIDAPI_KEY;
   const host = process.env.RAPIDAPI_HOST || DEFAULT_HOST;
+  const rawPath = (process.env.RAPIDAPI_PATH || "/index").trim();
+  const path = rawPath.startsWith("/") ? rawPath : `/${rawPath}`;
 
   if (!key) {
     throw new ProviderError(
@@ -395,7 +397,7 @@ export async function fetchTikTokMedia(inputUrl: string) {
   }
 
   const response = await fetch(
-    `https://${host}/index?url=${encodeURIComponent(inputUrl)}`,
+    `https://${host}${path}?url=${encodeURIComponent(inputUrl)}`,
     {
       method: "GET",
       headers: {
@@ -426,6 +428,8 @@ export async function fetchTikTokMedia(inputUrl: string) {
       isObj(payload) && typeof payload.message === "string"
         ? payload.message
         : `Provider HTTP ${response.status}`;
+
+    console.error(`[rapidapi] ${response.status} ${host}${path}:`, text.slice(0, 300));
 
     throw new ProviderError(
       message,
