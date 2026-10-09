@@ -1,3 +1,4 @@
+
 const DEFAULT_HOST =
   "tiktok-downloader-download-tiktok-videos-without-watermark.p.rapidapi.com";
 
@@ -160,6 +161,32 @@ function pickStr(sources: Json[], keys: string[]) {
   }
 
   return undefined;
+}
+
+function pickDescription(sources: Json[], keys: string[]): string {
+  for (const source of sources) {
+    for (const key of keys) {
+      const value = source[key];
+
+      if (typeof value === "string" && value.trim()) {
+        return value.trim();
+      }
+
+      if (Array.isArray(value)) {
+        const text = value
+          .filter((item): item is string => typeof item === "string")
+          .map((item) => item.trim())
+          .filter(Boolean)
+          .join("\n");
+
+        if (text) {
+          return text;
+        }
+      }
+    }
+  }
+
+  return "";
 }
 
 function pickNum(sources: Json[], keys: string[]) {
@@ -359,8 +386,10 @@ export function normalizeMedia(payload: unknown, inputUrl: string): TikTokMedia 
     id: pickStr([root], ["id", "aweme_id", "awemeId", "video_id", "videoId"]) ?? null,
     type: photos.length > 0 ? "photo" : "video",
     author: { username, nickname, avatar },
-    description:
-      pickStr([root], ["title", "desc", "description", "caption", "text"]) ?? "",
+    description: pickDescription(
+      [root],
+      ["description", "desc", "caption", "title", "text"]
+    ),
     cover,
     stats: {
       likes: pickNum(statSources, [
