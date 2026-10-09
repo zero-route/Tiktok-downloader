@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useRef, useState } from "react";
@@ -117,7 +118,7 @@ function HeartIcon() {
 function CommentIcon() {
   return (
     <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M12 3C6.5 3 2 6.6 2 11.2c0 2.3 1.2 4.4 3 5.9-.1 1.4-.7 2.8-1.7 3.9 2-.1 3.7-.8 5-1.9 1.1.3 2.3.5 3.7.5 5.5 0 10-3.6 10-8.4S17.500 3 12 3Zm-4 9.200a1.200 1.200 0 1 1 0-2.400 1.200 1.200 0 0 1 0 2.400Zm4 0a1.200 1.200 0 1 1 0-2.400 1.200 1.200 0 0 1 0 2.400Zm4 0a1.200 1.200 0 1 1 0-2.400 1.200 1.200 0 0 1 0 2.400Z" />
+      <path d="M12 3C6.5 3 2 6.6 2 11.2c0 2.3 1.2 4.4 3 5.9-.1 1.4-.7 2.8-1.7 3.9 2-.1 3.7-.8 5-1.9 1.1.3 2.3.5 3.7.5 5.5 0 10-3.6 10-8.4S17.5 3 12 3Zm-4 9.2a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4Zm4 0a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4Zm4 0a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4Z" />
     </svg>
   );
 }
@@ -136,7 +137,7 @@ function RepostIcon() {
 function ViewsIcon() {
   return (
     <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M7 4.500v15a1 1 0 0 0 1.500.9l12-7.500a1 1 0 0 0 0-1.700l-12-7.500A1 1 0 0 0 7 4.500Z" />
+      <path d="M7 4.5v15a1 1 0 0 0 1.5.9l12-7.5a1 1 0 0 0 0-1.7l-12-7.5A1 1 0 0 0 7 4.5Z" />
     </svg>
   );
 }
@@ -277,14 +278,17 @@ export default function Home() {
 
   return (
     <main className="page">
-      <header className="hero">
-        <h1 className="logo">
-          Vid<span>zy</span>
-        </h1>
-        <p className="tagline">
-          Unduh video dan slideshow TikTok dengan cepat dan mudah.
-        </p>
+      <header className="topbar">
+        <a className="brand" href="#top" aria-label="Vidzy beranda">
+          Vidzy
+        </a>
+        <span className="brand-note">TikTok Downloader</span>
       </header>
+
+      <section className="hero" id="top">
+        <h1 className="hero-title">Unduh konten TikTok</h1>
+        <p className="tagline">Video dan slideshow, dengan mudah.</p>
+      </section>
 
       <form className="search" onSubmit={handleSubmit}>
         <label className="field">
@@ -314,7 +318,11 @@ export default function Home() {
           )}
         </label>
 
-        <button type="submit" className="btn btn-primary btn-search" disabled={loading}>
+        <button
+          type="submit"
+          className="btn btn-primary btn-search"
+          disabled={loading}
+        >
           {loading ? (
             <span className="spinner" aria-hidden="true" />
           ) : (
@@ -425,7 +433,12 @@ export default function Home() {
               >
                 {data.cover ? (
                   <>
-                    <img className="stage-blur" src={data.cover} alt="" aria-hidden="true" />
+                    <img
+                      className="stage-blur"
+                      src={data.cover}
+                      alt=""
+                      aria-hidden="true"
+                    />
                     <img
                       className="thumb"
                       src={data.cover}
@@ -437,8 +450,14 @@ export default function Home() {
                   <span className="thumb thumb-empty" />
                 )}
                 <span className="play">
-                  <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M8 5.500v13a1 1 0 0 0 1.500.9l10.500-6.500a1 1 0 0 0 0-1.800L9.500 4.600A1 1 0 0 0 8 5.500Z" />
+                  <svg
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path d="M8 5.5v13a1 1 0 0 0 1.5.9L20 12.9a1 1 0 0 0 0-1.8L9.5 4.6A1 1 0 0 0 8 5.5Z" />
                   </svg>
                 </span>
               </button>
@@ -446,7 +465,10 @@ export default function Home() {
 
             {isPhoto && activePhoto ? (
               <div className="actions">
-                <a className="btn btn-primary btn-block" href={activePhoto.download}>
+                <a
+                  className="btn btn-primary btn-block"
+                  href={activePhoto.download}
+                >
                   <DownloadIcon />
                   <span>Download Slide {slide + 1}</span>
                 </a>
@@ -460,7 +482,9 @@ export default function Home() {
                   >
                     <DownloadIcon />
                     <span>
-                      {bulk ? "Mengunduh..." : `Download Semua (${photos.length})`}
+                      {bulk
+                        ? "Mengunduh..."
+                        : `Download Semua (${photos.length})`}
                     </span>
                   </button>
                 )}
@@ -468,7 +492,10 @@ export default function Home() {
             ) : (
               data.video && (
                 <div className="actions">
-                  <a className="btn btn-primary btn-block" href={data.video.download}>
+                  <a
+                    className="btn btn-primary btn-block"
+                    href={data.video.download}
+                  >
                     <DownloadIcon />
                     <span>Download</span>
                   </a>
