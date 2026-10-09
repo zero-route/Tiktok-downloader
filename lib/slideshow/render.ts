@@ -1,6 +1,5 @@
 
 import ffmpegPath from "ffmpeg-static";
-import { createRequire } from "node:module";
 import { spawn } from "node:child_process";
 import {
   mkdtemp,
@@ -15,12 +14,6 @@ import type {
   SlideshowInput,
   SlideshowResult,
 } from "./types";
-
-const require = createRequire(import.meta.url);
-
-const ffprobePath: string = require(
-  "@ffprobe-installer/ffprobe"
-).path;
 
 const MAX_IMAGES = 30;
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
@@ -178,29 +171,40 @@ function run(
         return;
       }
 
-      resolve(stdout.trim());
+      resolve(`${stdout}\n${stderr}`.trim());
     });
   });
 }
 
 async function getAudioDuration(
+  ffmpegBinary: string,
   audioPath: string,
 ): Promise<number> {
   const output = await run(
-    ffprobePath,
+    ffmpegBinary,
     [
-      "-v",
-      "error",
-      "-show_entries",
-      "format=duration",
-      "-of",
-      "default=noprint_wrappers=1:nokey=1",
-      audioPath,
+      "-hide_banner",
+      "-nostats",
+      "-i", audioPath,
+      "-t", "0",
+      "-f", "null",
+      "-",
     ],
     30_000,
   );
 
-  const duration = Number(output);
+  const match = output.match(
+    /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/,
+  );
+
+  if (!match) {
+    throw new Error("Durasi audio tidak dapat dibaca.");
+  }
+
+  const duration =
+    Number(match[1]) * 3600 +
+    Number(match[2]) * 60 +
+    Number(match[3]);
 
   if (!Number.isFinite(duration) || duration <= 0) {
     throw new Error("Durasi audio tidak dapat dibaca.");
@@ -265,7 +269,7 @@ export async function renderSlideshow(
 
     await writeFile(audioPath, audioBuffer);
 
-    const duration = await getAudioDuration(audioPath);
+    const duration = await getAudioDuration(ffmpegPath, audioPath);
     const imageDuration = duration / imagePaths.length;
 
     const concatContent = [

@@ -12,9 +12,7 @@
 "next": "^15.5.0",
 "react": "^19.1.0",
 "react-dom": "^19.1.0",
-"ffmpeg-static": "^5.2.0",
-"@ffprobe-installer/ffprobe": "^2.1.2",
-"@ffprobe-installer/linux-x64": "^5.2.0"
+"ffmpeg-static": "^5.2.0"
 },
 "devDependencies": {
 "@types/node": "^22.15.0",
