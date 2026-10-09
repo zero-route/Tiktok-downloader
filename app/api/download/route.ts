@@ -120,10 +120,21 @@ export async function GET(request: NextRequest) {
       return jsonError("Server media tidak mengembalikan file.", 502);
     }
 
+    const pathExtension = parsed.pathname.split(".").pop()?.toLowerCase() || "";
+
+    const inferred: Record<string, string> = {
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      png: "image/png",
+      webp: "image/webp",
+      gif: "image/gif",
+      mp4: "video/mp4",
+    };
+
     const contentType =
       upstreamType && upstreamType !== "application/octet-stream"
         ? upstreamType
-        : "application/octet-stream";
+        : inferred[pathExtension] || "application/octet-stream";
 
     const out = new Headers();
 

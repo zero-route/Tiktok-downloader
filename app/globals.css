@@ -64,7 +64,7 @@ a {
   width: 100%;
   max-width: 640px;
   margin: 0 auto;
-  padding: 56px 20px 40px;
+  padding: 56px 16px 40px;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -96,7 +96,7 @@ a {
 
 .search {
   display: flex;
-  gap: 12px;
+  gap: 10px;
 }
 
 .field {
@@ -104,9 +104,9 @@ a {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
-  height: 56px;
-  padding: 0 16px;
+  gap: 10px;
+  height: 52px;
+  padding: 0 12px 0 14px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -132,7 +132,8 @@ a {
   outline: 0;
   background: transparent;
   color: var(--text);
-  font-size: 1rem;
+  font-size: 0.95rem;
+  text-overflow: ellipsis;
 }
 
 .field input::placeholder {
@@ -214,7 +215,10 @@ a {
 
 .btn-search {
   flex-shrink: 0;
-  padding: 0 24px;
+  height: 52px;
+  padding: 0 18px;
+  gap: 8px;
+  font-size: 0.95rem;
 }
 
 .spinner {
@@ -296,6 +300,7 @@ a {
   border-radius: var(--radius-sm);
   background: #05080d;
   aspect-ratio: 4 / 3;
+  max-height: 80vh;
 }
 
 .stage-thumb {
@@ -303,9 +308,10 @@ a {
 }
 
 .thumb {
+  position: relative;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .thumb-empty {
@@ -341,13 +347,14 @@ a {
 
 .stage-playing {
   aspect-ratio: auto;
+  max-height: none;
   background: #000;
 }
 
 .player {
   display: block;
   width: 100%;
-  max-height: 72vh;
+  max-height: 80vh;
   background: #000;
   object-fit: contain;
 }
@@ -601,16 +608,8 @@ a {
     padding-top: 44px;
   }
 
-  .search {
-    gap: 10px;
-  }
-
   .btn-search {
-    padding: 0 18px;
-  }
-
-  .btn-search span:last-child {
-    font-size: 0.95rem;
+    padding: 0 15px;
   }
 
   .stat-top {

@@ -160,9 +160,23 @@ export default function Home() {
   const [playing, setPlaying] = useState(false);
   const [slide, setSlide] = useState(0);
   const [bulk, setBulk] = useState(false);
+  const [ratio, setRatio] = useState<number | null>(null);
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const touchStart = useRef<number | null>(null);
 
   const photos = data?.photos ?? [];
+  const stageStyle = ratio
+    ? { aspectRatio: String(Math.min(2, Math.max(0.5, ratio))) }
+    : undefined;
+
+  function captureRatio(event: React.SyntheticEvent<HTMLImageElement>) {
+    const image = event.currentTarget;
+
+    if (ratio === null && image.naturalWidth && image.naturalHeight) {
+      setRatio(image.naturalWidth / image.naturalHeight);
+    }
+  }
+
   const isPhoto = data?.type === "photo" && photos.length > 0;
   const activePhoto = isPhoto ? photos[slide] : null;
 
@@ -181,6 +195,8 @@ export default function Home() {
     setData(null);
     setPlaying(false);
     setSlide(0);
+    setRatio(null);
+    setAvatarFailed(false);
 
     try {
       const response = await fetch(
@@ -214,6 +230,8 @@ export default function Home() {
     setData(null);
     setPlaying(false);
     setSlide(0);
+    setRatio(null);
+    setAvatarFailed(false);
   }
 
   function goTo(index: number) {
@@ -277,7 +295,7 @@ export default function Home() {
           <input
             value={url}
             onChange={(event) => setUrl(event.target.value)}
-            placeholder="Tempel URL TikTok di sini..."
+            placeholder="Tempel URL TikTok..."
             autoComplete="off"
             autoCapitalize="off"
             spellCheck={false}
@@ -300,7 +318,7 @@ export default function Home() {
           {loading ? (
             <span className="spinner" aria-hidden="true" />
           ) : (
-            <DownloadIcon />
+            <DownloadIcon size={20} />
           )}
           <span>{loading ? "Memproses" : "Unduh"}</span>
         </button>
@@ -329,6 +347,7 @@ export default function Home() {
             {isPhoto && activePhoto ? (
               <div
                 className="stage stage-slide"
+                style={stageStyle}
                 onTouchStart={(event) => {
                   touchStart.current = event.touches[0].clientX;
                 }}
@@ -345,6 +364,7 @@ export default function Home() {
                   src={activePhoto.src}
                   alt={`Slide ${slide + 1}`}
                   draggable={false}
+                  onLoad={captureRatio}
                 />
 
                 <span className="badge badge-left">Slide</span>
@@ -399,11 +419,20 @@ export default function Home() {
               <button
                 type="button"
                 className="stage stage-thumb"
+                style={stageStyle}
                 onClick={() => data.video && setPlaying(true)}
                 aria-label="Putar video"
               >
                 {data.cover ? (
-                  <img className="thumb" src={data.cover} alt="Thumbnail video" />
+                  <>
+                    <img className="stage-blur" src={data.cover} alt="" aria-hidden="true" />
+                    <img
+                      className="thumb"
+                      src={data.cover}
+                      alt="Thumbnail video"
+                      onLoad={captureRatio}
+                    />
+                  </>
                 ) : (
                   <span className="thumb thumb-empty" />
                 )}
@@ -450,8 +479,13 @@ export default function Home() {
 
           <section className="card info">
             <div className="profile">
-              {data.author.avatar ? (
-                <img className="avatar" src={data.author.avatar} alt={displayName} />
+              {data.author.avatar && !avatarFailed ? (
+                <img
+                  className="avatar"
+                  src={data.author.avatar}
+                  alt={displayName}
+                  onError={() => setAvatarFailed(true)}
+                />
               ) : (
                 <span className="avatar avatar-fallback">
                   {displayName[0].toUpperCase()}

@@ -84,47 +84,59 @@ const URL_KEYS = [
   "downloadAddr",
 ];
 
-function firstUrl(value: unknown, depth = 0): string | undefined {
+function collectUrls(value: unknown, depth = 0): string[] {
   if (depth > 5) {
-    return undefined;
+    return [];
   }
 
   if (typeof value === "string") {
-    return /^https?:\/\//i.test(value.trim()) ? value.trim() : undefined;
+    return /^https?:\/\//i.test(value.trim()) ? [value.trim()] : [];
   }
 
   if (Array.isArray(value)) {
-    for (const item of value) {
-      const found = firstUrl(item, depth + 1);
-
-      if (found) {
-        return found;
-      }
-    }
-
-    return undefined;
+    return value.flatMap((item) => collectUrls(item, depth + 1));
   }
 
   if (isObj(value)) {
     for (const key of URL_KEYS) {
       if (key in value) {
-        const found = firstUrl(value[key], depth + 1);
+        const found = collectUrls(value[key], depth + 1);
 
-        if (found) {
+        if (found.length > 0) {
           return found;
         }
       }
     }
   }
 
-  return undefined;
+  return [];
 }
 
-function pickUrl(sources: Json[], keys: string[]) {
+function firstUrl(value: unknown): string | undefined {
+  return collectUrls(value)[0];
+}
+
+function bestImageUrl(value: unknown): string | undefined {
+  const urls = collectUrls(value);
+
+  if (urls.length === 0) {
+    return undefined;
+  }
+
+  const usable = urls.filter((url) => !/\.heic?(\?|$)/i.test(url));
+
+  return (
+    usable.find((url) => /\.(jpe?g|webp|png)(\?|$)/i.test(url)) ??
+    usable[0] ??
+    urls[0]
+  );
+}
+
+function pickUrl(sources: Json[], keys: string[], image = false) {
   for (const source of sources) {
     for (const key of keys) {
       if (key in source) {
-        const found = firstUrl(source[key]);
+        const found = image ? bestImageUrl(source[key]) : firstUrl(source[key]);
 
         if (found) {
           return found;
@@ -220,7 +232,7 @@ function extractPhotos(root: Json, extra: Json[]) {
 
       if (Array.isArray(list)) {
         const urls = list
-          .map((item) => firstUrl(item))
+          .map((item) => bestImageUrl(item))
           .filter((item): item is string => Boolean(item));
 
         if (urls.length > 0) {
@@ -325,7 +337,7 @@ export function normalizeMedia(payload: unknown, inputUrl: string): TikTokMedia 
       "avatar_larger",
       "avatarLarger",
       "avatar_url",
-    ]) ?? null;
+    ], true) ?? null;
 
   const statSources = statsObj ? [statsObj, root] : [root];
 
@@ -339,7 +351,7 @@ export function normalizeMedia(payload: unknown, inputUrl: string): TikTokMedia 
       "thumbnail",
       "thumb",
       "poster",
-    ]) ??
+    ], true) ??
     photos[0] ??
     null;
 
