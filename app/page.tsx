@@ -470,18 +470,34 @@ export default function Home() {
 
           <section className="card info">
             <div className="profile">
-              {data.author.avatar && !avatarFailed ? (
-                <img
-                  className="avatar"
-                  src={data.author.avatar}
-                  alt={displayName}
-                  onError={() => setAvatarFailed(true)}
-                />
-              ) : (
-                <span className="avatar avatar-fallback">
-                  {displayName[0].toUpperCase()}
-                </span>
-              )}
+              
+{data.author.avatar && !avatarFailed ? (
+  <img
+    key={data.author.avatar}
+    className="avatar"
+    src={data.author.avatar}
+    alt={displayName}
+    referrerPolicy="no-referrer"
+    onError={(event) => {
+      const image = event.currentTarget;
+
+      if (!image.dataset.retried) {
+        image.dataset.retried = "true";
+
+        const separator = data.author.avatar!.includes("?") ? "&" : "?";
+        image.src = `${data.author.avatar}${separator}_retry=${Date.now()}`;
+        return;
+      }
+
+      setAvatarFailed(true);
+    }}
+  />
+) : (
+  <span className="avatar avatar-fallback">
+    {displayName[0].toUpperCase()}
+  </span>
+)}
+
 
               <div className="profile-text">
                 <strong>{displayName}</strong>
