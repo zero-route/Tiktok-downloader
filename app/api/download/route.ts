@@ -1,89 +1,166 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchTikTokMedia, ProviderError } from "@/lib/rapidapi";
-import { proxyPath } from "@/lib/sign";
+import { randomUUID } from "crypto";
+import { verifyUrl } from "@/lib/sign";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-function isTikTokHost(hostname: string) {
-  const host = hostname.toLowerCase();
+const MAX_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 600;
 
-  return host === "tiktok.com" || host.endsWith(".tiktok.com");
+const USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
+
+const EXTENSIONS: Record<string, string> = {
+  "video/mp4": "mp4",
+  "video/webm": "webm",
+  "video/quicktime": "mov",
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/avif": "avif",
+  "image/heic": "heic",
+  "audio/mpeg": "mp3",
+};
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function fail(error: string, status: number, detail?: string) {
+function sanitizeName(value: string) {
+  const cleaned = value
+    .replace(/^@+/, "")
+    .replace(/[^a-zA-Z0-9._-]/g, "")
+    .slice(0, 60);
+
+  return cleaned || "tiktok";
+}
+
+function jsonError(error: string, status: number, detail?: string) {
   return NextResponse.json({ ok: false, error, detail }, { status });
 }
 
 export async function GET(request: NextRequest) {
-  const inputUrl = request.nextUrl.searchParams.get("url")?.trim();
+  const params = request.nextUrl.searchParams;
+  const target = params.get("u")?.trim();
+  const signature = params.get("s")?.trim();
+  const name = params.get("n")?.trim() || "tiktok";
+  const asDownload = params.get("d") === "1";
+  const range = request.headers.get("range");
 
-  if (!inputUrl) {
-    return fail("Parameter url wajib diisi.", 400);
+  if (!target || !signature || !verifyUrl(target, signature)) {
+    return jsonError("Tautan media tidak valid.", 403);
   }
 
   let parsed: URL;
 
   try {
-    parsed = new URL(inputUrl);
+    parsed = new URL(target);
   } catch {
-    return fail("URL TikTok tidak valid.", 400);
+    return jsonError("Tautan media tidak valid.", 400);
   }
 
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-    return fail("URL TikTok tidak valid.", 400);
+    return jsonError("Tautan media tidak valid.", 400);
   }
 
-  if (!isTikTokHost(parsed.hostname)) {
-    return fail("URL harus berasal dari TikTok.", 400);
+  const headers: Record<string, string> = {
+    Accept: "*/*",
+    "User-Agent": USER_AGENT,
+    Referer: "https://www.tiktok.com/",
+  };
+
+  if (range) {
+    headers.Range = range;
   }
 
   try {
-    const media = await fetchTikTokMedia(inputUrl);
-    const username = media.author.username || "tiktok";
-
-    return NextResponse.json({
-      ok: true,
-      data: {
-        id: media.id,
-        type: media.type,
-        description: media.description,
-        stats: media.stats,
-        originalUrl: inputUrl,
-        profileUrl: media.author.username
-          ? `https://www.tiktok.com/@${media.author.username}`
-          : null,
-        author: {
-          username: media.author.username,
-          nickname: media.author.nickname,
-          avatar: media.author.avatar ? proxyPath(media.author.avatar) : null,
-        },
-        cover: media.cover ? proxyPath(media.cover) : null,
-        video: media.videoUrl
-          ? {
-              src: proxyPath(media.videoUrl),
-              download: proxyPath(media.videoUrl, {
-                name: username,
-                download: true,
-              }),
-            }
-          : null,
-        photos: media.photos.map((photo) => ({
-          src: proxyPath(photo),
-          download: proxyPath(photo, { name: username, download: true }),
-        })),
-      },
+    let response = await fetch(target, {
+      method: "GET",
+      redirect: "follow",
+      cache: "no-store",
+      headers,
     });
-  } catch (error) {
-    if (error instanceof ProviderError) {
-      return fail(error.message, error.status, error.detail);
+
+    for (
+      let attempt = 1;
+      attempt < MAX_ATTEMPTS &&
+      !response.ok &&
+      (response.status === 429 || response.status >= 500);
+      attempt++
+    ) {
+      await sleep(RETRY_DELAY_MS);
+
+      response = await fetch(target, {
+        method: "GET",
+        redirect: "follow",
+        cache: "no-store",
+        headers,
+      });
     }
 
-    return fail(
-      error instanceof Error
-        ? error.message
-        : "Terjadi kesalahan pada server.",
+    if (!response.ok || !response.body) {
+      const detail = (await response.text().catch(() => "")).slice(0, 300);
+
+      return jsonError(`Server media HTTP ${response.status}`, 502, detail);
+    }
+
+    const upstreamType = (response.headers.get("content-type") || "")
+      .split(";")[0]
+      .trim()
+      .toLowerCase();
+
+    if (
+      upstreamType.includes("json") ||
+      upstreamType.startsWith("text/")
+    ) {
+      return jsonError("Server media tidak mengembalikan file.", 502);
+    }
+
+    const contentType =
+      upstreamType && upstreamType !== "application/octet-stream"
+        ? upstreamType
+        : "application/octet-stream";
+
+    const out = new Headers();
+
+    out.set("Content-Type", contentType);
+
+    for (const header of ["content-length", "content-range"]) {
+      const value = response.headers.get(header);
+
+      if (value) {
+        out.set(header, value);
+      }
+    }
+
+    out.set("Accept-Ranges", response.headers.get("accept-ranges") || "bytes");
+
+    if (asDownload) {
+      const extension =
+        EXTENSIONS[contentType] ||
+        parsed.pathname.split(".").pop()?.toLowerCase().slice(0, 5) ||
+        "bin";
+
+      const filename = `Vidzy_${sanitizeName(name)}_${randomUUID()}.${extension}`;
+
+      out.set("Content-Disposition", `attachment; filename="${filename}"`);
+      out.set("Cache-Control", "no-store");
+    } else {
+      out.set("Content-Disposition", "inline");
+      out.set("Cache-Control", "private, max-age=300");
+    }
+
+    return new NextResponse(response.body, {
+      status: response.status === 206 ? 206 : 200,
+      headers: out,
+    });
+  } catch (error) {
+    return jsonError(
+      error instanceof Error ? error.message : "Gagal mengambil file media.",
       502
     );
   }
