@@ -752,3 +752,26 @@ a {
     transition-duration: 0.01ms !important;
   }
 }
+
+.hashtags {
+  margin-top: 16px;
+}
+
+.hashtag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.hashtag {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border: 1px solid var(--border, #e5e5e5);
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: inherit;
+  background: transparent;
+}
