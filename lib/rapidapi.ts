@@ -39,7 +39,8 @@ function isObj(value: unknown): value is Json {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function str(value: unknown) {
+
+function str(value: unknown): string | undefined {
   if (typeof value === "string" && value.trim()) {
     return value.trim();
   }
@@ -50,7 +51,7 @@ function str(value: unknown) {
 
   if (Array.isArray(value)) {
     for (const item of value) {
-      const found = str(item);
+      const found: string | undefined = str(item);
 
       if (found) {
         return found;
@@ -60,6 +61,7 @@ function str(value: unknown) {
 
   return undefined;
 }
+
 
 function num(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) {
