@@ -21,6 +21,7 @@ export type TikTokMedia = {
     views: number;
   };
   videoUrl: string | null;
+  audioUrl: string | null;
   photos: string[];
 };
 
@@ -93,6 +94,8 @@ const URL_KEYS = [
   "downloadUrl",
   "play_addr",
   "playAddr",
+  "play_url",
+  "playUrl",
   "download_addr",
   "downloadAddr",
 ];
@@ -329,6 +332,19 @@ export function normalizeMedia(
       "url",
     ]) ?? null;
 
+  const audioUrl =
+    pickUrl(mediaSources, [
+      "music",
+      "music_url",
+      "musicUrl",
+      "music_info",
+      "musicInfo",
+      "audio",
+      "audio_url",
+      "audioUrl",
+      "sound",
+    ]) ?? null;
+
   if (photos.length === 0 && !videoUrl) {
     throw new ProviderError(
       "Media tidak ditemukan pada response provider.",
@@ -469,6 +485,7 @@ export function normalizeMedia(
       ]),
     },
     videoUrl: photos.length > 0 ? null : videoUrl,
+    audioUrl,
     photos,
   };
 }

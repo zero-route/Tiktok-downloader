@@ -69,6 +69,13 @@ export async function GET(request: NextRequest) {
               }),
             }
           : null,
+        slideshow:
+          media.type === "photo" && media.audioUrl
+            ? {
+                images: media.photos.slice(0, 30),
+                audioUrl: media.audioUrl,
+              }
+            : null,
         photos: media.photos.map((photo) => ({
           src: proxyPath(photo),
           download: proxyPath(photo, { name: username, download: true }),

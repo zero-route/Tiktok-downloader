@@ -15,6 +15,9 @@ import type {
   SlideshowResult,
 } from "./types";
 
+const USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
+
 const MAX_IMAGES = 30;
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
 const MAX_AUDIO_BYTES = 30 * 1024 * 1024;
@@ -57,6 +60,11 @@ async function downloadAsset(
   for (let i = 0; i <= 4; i++) {
     response = await fetch(url, {
       redirect: "manual",
+      headers: {
+        Accept: "*/*",
+        "User-Agent": USER_AGENT,
+        Referer: "https://www.tiktok.com/",
+      },
       signal: AbortSignal.timeout(25_000),
     });
 

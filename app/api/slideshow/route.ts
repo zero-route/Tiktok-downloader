@@ -4,6 +4,8 @@ import { renderSlideshow } from "@/lib/slideshow/render";
 import type { SlideshowInput } from "@/lib/slideshow/types";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,12 +32,27 @@ export async function POST(request: NextRequest) {
       audioUrl: body.audioUrl,
     });
 
-    return new Response(new Uint8Array(result.buffer), {
+    const bytes = new Uint8Array(result.buffer);
+    const chunkSize = 256 * 1024;
+    let offset = 0;
+
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (offset >= bytes.length) {
+          controller.close();
+          return;
+        }
+
+        controller.enqueue(bytes.subarray(offset, offset + chunkSize));
+        offset += chunkSize;
+      },
+    });
+
+    return new Response(stream, {
       status: 200,
       headers: {
         "Content-Type": "video/mp4",
         "Content-Disposition": 'attachment; filename="vidzy-slideshow.mp4"',
-        "Content-Length": String(result.buffer.length),
         "Cache-Control": "no-store",
         "X-Slideshow-Duration": String(result.duration),
         "X-Slideshow-Images": String(result.imageCount),
