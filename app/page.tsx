@@ -11,19 +11,13 @@ type MediaFile = {
 type MediaData = {
   id: string | null;
   type: "video" | "photo";
-  description: string;
+  description: string | string[] | null;
   profileUrl: string | null;
   cover: string | null;
   author: {
     username: string | null;
     nickname: string | null;
     avatar: string | null;
-  };
-  stats: {
-    likes: number;
-    comments: number;
-    shares: number;
-    views: number;
   };
   video: MediaFile | null;
   photos: MediaFile[];
@@ -35,24 +29,6 @@ type ApiResponse = {
   error?: string;
   detail?: string;
 };
-
-function formatNumber(value?: number) {
-  if (!value) return "0";
-
-  if (value >= 1_000_000_000) {
-    return `${(value / 1_000_000_000).toFixed(1).replace(".0", "")}B`;
-  }
-
-  if (value >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(1).replace(".0", "")}M`;
-  }
-
-  if (value >= 1_000) {
-    return `${(value / 1_000).toFixed(1).replace(".0", "")}K`;
-  }
-
-  return value.toLocaleString("id-ID");
-}
 
 function Icon({
   children,
@@ -107,41 +83,6 @@ function ExternalIcon() {
   );
 }
 
-function HeartIcon() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M12 21s-7.5-4.6-9.6-9.3C.8 8 2.9 4.5 6.4 4.5c2 0 3.7 1.1 4.6 2.7h2c.9-1.6 2.6-2.7 4.6-2.7 3.5 0 5.6 3.5 4 7.2C19.5 16.4 12 21 12 21Z" />
-    </svg>
-  );
-}
-
-function CommentIcon() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M12 3C6.5 3 2 6.6 2 11.2c0 2.3 1.2 4.4 3 5.9-.1 1.4-.7 2.8-1.7 3.9 2-.1 3.7-.8 5-1.9 1.1.3 2.3.5 3.7.5 5.5 0 10-3.6 10-8.4S17.5 3 12 3Zm-4 9.2a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4Zm4 0a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4Zm4 0a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4Z" />
-    </svg>
-  );
-}
-
-function RepostIcon() {
-  return (
-    <Icon size={26}>
-      <path d="m17 2 4 4-4 4" />
-      <path d="M3 11V9a3 3 0 0 1 3-3h15" />
-      <path d="m7 22-4-4 4-4" />
-      <path d="M21 13v2a3 3 0 0 1-3 3H3" />
-    </Icon>
-  );
-}
-
-function ViewsIcon() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M7 4.5v15a1 1 0 0 0 1.5.9l12-7.5a1 1 0 0 0 0-1.7l-12-7.5A1 1 0 0 0 7 4.5Z" />
-    </svg>
-  );
-}
-
 function CaptionIcon() {
   return (
     <Icon size={22}>
@@ -180,6 +121,27 @@ export default function Home() {
 
   const isPhoto = data?.type === "photo" && photos.length > 0;
   const activePhoto = isPhoto ? photos[slide] : null;
+
+  const rawDescription = data?.description;
+
+  const fullCaption = Array.isArray(rawDescription)
+    ? rawDescription
+        .filter((item): item is string => typeof item === "string")
+        .join("\n")
+        .trim()
+    : typeof rawDescription === "string"
+      ? rawDescription.trim()
+      : "";
+
+  const hashtags = [
+    ...new Set(fullCaption.match(/#[\p{L}\p{N}_]+/gu) ?? []),
+  ];
+
+  const caption = fullCaption
+    .replace(/#[\p{L}\p{N}_]+/gu, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/ *\n */g, "\n")
+    .trim();
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -258,19 +220,21 @@ export default function Home() {
 
     setBulk(true);
 
-    for (const photo of photos) {
-      const link = document.createElement("a");
+    try {
+      for (const photo of photos) {
+        const link = document.createElement("a");
 
-      link.href = photo.download;
-      link.download = "";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+        link.href = photo.download;
+        link.download = "";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
 
-      await new Promise((resolve) => setTimeout(resolve, 700));
+        await new Promise((resolve) => setTimeout(resolve, 700));
+      }
+    } finally {
+      setBulk(false);
     }
-
-    setBulk(false);
   }
 
   const username = data?.author.username;
@@ -537,44 +501,28 @@ export default function Home() {
               )}
             </div>
 
-            <div className="stats">
-              <div className="stat">
-                <div className="stat-top">
-                  <HeartIcon />
-                  <strong>{formatNumber(data.stats.likes)}</strong>
-                </div>
-                <span>Likes</span>
-              </div>
-              <div className="stat">
-                <div className="stat-top">
-                  <CommentIcon />
-                  <strong>{formatNumber(data.stats.comments)}</strong>
-                </div>
-                <span>Komentar</span>
-              </div>
-              <div className="stat">
-                <div className="stat-top">
-                  <RepostIcon />
-                  <strong>{formatNumber(data.stats.shares)}</strong>
-                </div>
-                <span>Repost</span>
-              </div>
-              <div className="stat">
-                <div className="stat-top">
-                  <ViewsIcon />
-                  <strong>{formatNumber(data.stats.views)}</strong>
-                </div>
-                <span>Views</span>
-              </div>
-            </div>
-
-            {data.description && (
+            {caption && (
               <div className="caption">
                 <div className="caption-label">
                   <CaptionIcon />
                   <span>Caption</span>
                 </div>
-                <p>{data.description}</p>
+                <p>{caption}</p>
+              </div>
+            )}
+
+            {hashtags.length > 0 && (
+              <div className="hashtags">
+                <div className="caption-label">
+                  <span>Hashtag</span>
+                </div>
+                <div className="hashtag-list">
+                  {hashtags.map((tag) => (
+                    <span className="hashtag" key={tag}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
           </section>
