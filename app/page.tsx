@@ -1,245 +1,207 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useRef, useState } from "react";
 
-type TikTokData = {
-  id?: string;
-  author?: {
-    username?: string;
-    nickname?: string;
-    verified?: boolean;
-    avatar?: string;
-  };
-  description?: string;
-  cover?: string;
-  stats?: {
-    likes?: number;
-    comments?: number;
-    views?: number;
-    shares?: number;
-    saves?: number;
-  };
-  hashtags?: Array<{
-    hashtagId?: string;
-    hashtagName?: string;
-  }>;
-  downloadUrl?: string;
-  originalUrl?: string;
-  resolvedUrl?: string;
+type MediaFile = {
+  src: string;
+  download: string;
 };
 
-type PhotoItem = {
-  downloadUrl: string;
-  fileName?: string;
-  contentType?: string;
-  fileSizeBytes?: number | null;
-  imageWidth?: number | null;
-  imageHeight?: number | null;
-  photoIndex?: number;
-  photoCount?: number;
-};
-
-type PhotoData = TikTokData & {
-  photos: PhotoItem[];
+type MediaData = {
+  id: string | null;
+  type: "video" | "photo";
+  description: string;
+  profileUrl: string | null;
+  cover: string | null;
+  author: {
+    username: string | null;
+    nickname: string | null;
+    avatar: string | null;
+  };
+  stats: {
+    likes: number;
+    comments: number;
+    shares: number;
+    views: number;
+  };
+  video: MediaFile | null;
+  photos: MediaFile[];
 };
 
 type ApiResponse = {
   ok?: boolean;
-  type?: "video" | "photo";
-  data?: TikTokData | PhotoData;
+  data?: MediaData;
   error?: string;
   detail?: string;
 };
 
-function isPhotoUrl(value: string) {
-  try {
-    const parsed = new URL(value);
-
-    return (
-      parsed.pathname.toLowerCase().includes("/photo/") ||
-      parsed.pathname.toLowerCase().includes("/photos/")
-    );
-  } catch {
-    return false;
-  }
-}
-
-function isShortTikTokUrl(value: string) {
-  try {
-    const parsed = new URL(value);
-    const host = parsed.hostname.toLowerCase();
-
-    return (
-      host === "vt.tiktok.com" ||
-      host === "vm.tiktok.com"
-    );
-  } catch {
-    return false;
-  }
-}
-
 function formatNumber(value?: number) {
   if (!value) return "0";
 
-  if (value >= 1000000000) {
-    return `${(value / 1000000000)
-      .toFixed(1)
-      .replace(".0", "")}B`;
+  if (value >= 1_000_000_000) {
+    return `${(value / 1_000_000_000).toFixed(1).replace(".0", "")}B`;
   }
 
-  if (value >= 1000000) {
-    return `${(value / 1000000)
-      .toFixed(1)
-      .replace(".0", "")}M`;
+  if (value >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(1).replace(".0", "")}M`;
   }
 
-  if (value >= 1000) {
-    return `${(value / 1000)
-      .toFixed(1)
-      .replace(".0", "")}K`;
+  if (value >= 1_000) {
+    return `${(value / 1_000).toFixed(1).replace(".0", "")}K`;
   }
 
   return value.toLocaleString("id-ID");
+}
+
+function Icon({
+  children,
+  size = 20,
+}: {
+  children: React.ReactNode;
+  size?: number;
+}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+function LinkIcon() {
+  return (
+    <Icon size={22}>
+      <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5" />
+      <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5" />
+    </Icon>
+  );
+}
+
+function DownloadIcon({ size = 22 }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <path d="M12 3v12" />
+      <path d="m7 11 5 5 5-5" />
+      <path d="M4 20h16" />
+    </Icon>
+  );
+}
+
+function ExternalIcon() {
+  return (
+    <Icon size={18}>
+      <path d="M18 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5" />
+      <path d="M15 3h6v6" />
+      <path d="M10 14 21 3" />
+    </Icon>
+  );
+}
+
+function HeartIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 21s-7.5-4.6-9.6-9.3C.8 8 2.9 4.5 6.4 4.5c2 0 3.7 1.1 4.6 2.7h2c.9-1.6 2.6-2.7 4.6-2.7 3.5 0 5.6 3.5 4 7.2C19.5 16.4 12 21 12 21Z" />
+    </svg>
+  );
+}
+
+function CommentIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 3C6.5 3 2 6.6 2 11.2c0 2.3 1.2 4.4 3 5.9-.1 1.4-.7 2.8-1.7 3.9 2-.1 3.7-.8 5-1.9 1.1.3 2.3.5 3.7.5 5.5 0 10-3.6 10-8.4S17.500 3 12 3Zm-4 9.200a1.200 1.200 0 1 1 0-2.400 1.200 1.200 0 0 1 0 2.400Zm4 0a1.200 1.200 0 1 1 0-2.400 1.200 1.200 0 0 1 0 2.400Zm4 0a1.200 1.200 0 1 1 0-2.400 1.200 1.200 0 0 1 0 2.400Z" />
+    </svg>
+  );
+}
+
+function RepostIcon() {
+  return (
+    <Icon size={26}>
+      <path d="m17 2 4 4-4 4" />
+      <path d="M3 11V9a3 3 0 0 1 3-3h15" />
+      <path d="m7 22-4-4 4-4" />
+      <path d="M21 13v2a3 3 0 0 1-3 3H3" />
+    </Icon>
+  );
+}
+
+function ViewsIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M7 4.500v15a1 1 0 0 0 1.500.9l12-7.500a1 1 0 0 0 0-1.700l-12-7.500A1 1 0 0 0 7 4.500Z" />
+    </svg>
+  );
+}
+
+function CaptionIcon() {
+  return (
+    <Icon size={22}>
+      <path d="M4 5h16" />
+      <path d="M4 10h10" />
+      <path d="M4 15h16" />
+      <path d="M4 20h10" />
+    </Icon>
+  );
 }
 
 export default function Home() {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [data, setData] = useState<TikTokData | null>(null);
-  const [photoData, setPhotoData] = useState<PhotoData | null>(null);
-  const [photoIndex, setPhotoIndex] = useState(0);
+  const [data, setData] = useState<MediaData | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [slide, setSlide] = useState(0);
+  const [bulk, setBulk] = useState(false);
+  const touchStart = useRef<number | null>(null);
 
-  const activePhoto =
-    photoData?.photos?.[photoIndex] || null;
+  const photos = data?.photos ?? [];
+  const isPhoto = data?.type === "photo" && photos.length > 0;
+  const activePhoto = isPhoto ? photos[slide] : null;
 
-  const photoDownloadHref = useMemo(() => {
-    if (!activePhoto) return null;
-
-    const username =
-      photoData?.author?.username || "tiktok";
-
-    return `/api/tiktok-photo-download?url=${encodeURIComponent(
-      activePhoto.downloadUrl
-    )}&username=${encodeURIComponent(username)}`;
-  }, [activePhoto, photoData]);
-
-  const videoDownloadHref = useMemo(() => {
-    if (!data) return null;
-
-    const targetUrl =
-      data.resolvedUrl ||
-      data.originalUrl;
-
-    if (!targetUrl) return null;
-
-    return `/api/download?tiktok=${encodeURIComponent(
-      targetUrl
-    )}`;
-  }, [data]);
-
-  async function requestJson(
-    endpoint: string,
-    targetUrl: string
-  ) {
-    const response = await fetch(
-      `${endpoint}?url=${encodeURIComponent(targetUrl)}`,
-      {
-        method: "GET",
-        cache: "no-store",
-      }
-    );
-
-    const result =
-      (await response
-        .json()
-        .catch(() => null)) as ApiResponse | null;
-
-    return {
-      response,
-      result,
-    };
-  }
-
-  async function handleSubmit(
-    event: React.FormEvent<HTMLFormElement>
-  ) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const value = url.trim();
 
     if (!value) {
-      setError(
-        "Masukkan tautan TikTok terlebih dahulu."
-      );
+      setError("Masukkan tautan TikTok terlebih dahulu.");
       return;
     }
 
     setLoading(true);
     setError("");
     setData(null);
-    setPhotoData(null);
-    setPhotoIndex(0);
+    setPlaying(false);
+    setSlide(0);
 
     try {
-      const photoUrl = isPhotoUrl(value);
-      const shortUrl = isShortTikTokUrl(value);
+      const response = await fetch(
+        `/api/tiktok?url=${encodeURIComponent(value)}`,
+        { cache: "no-store" }
+      );
 
-      if (photoUrl || shortUrl) {
-        const slideshow =
-          await requestJson(
-            "/api/tiktok-slideshow",
-            value
-          );
+      const result = (await response
+        .json()
+        .catch(() => null)) as ApiResponse | null;
 
-        if (
-          slideshow.response.ok &&
-          slideshow.result?.ok &&
-          slideshow.result.type === "photo" &&
-          slideshow.result.data &&
-          "photos" in slideshow.result.data &&
-          Array.isArray(
-            slideshow.result.data.photos
-          ) &&
-          slideshow.result.data.photos.length > 0
-        ) {
-          setPhotoData(
-            slideshow.result.data as PhotoData
-          );
-          return;
-        }
-
-        if (photoUrl) {
-          throw new Error(
-            slideshow.result?.error ||
-              "Gagal mendapatkan slideshow TikTok."
-          );
-        }
-      }
-
-      const video =
-        await requestJson(
-          "/api/tiktok",
-          value
-        );
-
-      if (
-        !video.response.ok ||
-        !video.result?.ok ||
-        !video.result.data
-      ) {
+      if (!response.ok || !result?.ok || !result.data) {
         throw new Error(
-          video.result?.error ||
-            "Gagal mendapatkan URL video TikTok. Pastikan link TikTok masih aktif."
+          result?.error || "Gagal memproses media. Pastikan link masih aktif."
         );
       }
 
-      setData(video.result.data);
+      setData(result.data);
     } catch (err) {
       setError(
-        err instanceof Error
-          ? err.message
-          : "Gagal memproses media TikTok."
+        err instanceof Error ? err.message : "Gagal memproses media TikTok."
       );
     } finally {
       setLoading(false);
@@ -250,378 +212,316 @@ export default function Home() {
     setUrl("");
     setError("");
     setData(null);
-    setPhotoData(null);
-    setPhotoIndex(0);
+    setPlaying(false);
+    setSlide(0);
   }
 
-  function previousPhoto() {
-    if (!photoData?.photos?.length) return;
+  function goTo(index: number) {
+    if (!photos.length) return;
 
-    setPhotoIndex((current) =>
-      current <= 0
-        ? photoData.photos.length - 1
-        : current - 1
-    );
+    setSlide((index + photos.length) % photos.length);
   }
 
-  function nextPhoto() {
-    if (!photoData?.photos?.length) return;
+  function onTouchEnd(event: React.TouchEvent) {
+    if (touchStart.current === null) return;
 
-    setPhotoIndex((current) =>
-      current >= photoData.photos.length - 1
-        ? 0
-        : current + 1
-    );
+    const delta = event.changedTouches[0].clientX - touchStart.current;
+
+    touchStart.current = null;
+
+    if (Math.abs(delta) > 40) {
+      goTo(delta < 0 ? slide + 1 : slide - 1);
+    }
   }
 
-  const displayData =
-    photoData || data;
+  async function downloadAll() {
+    if (bulk) return;
 
-  const hashtags =
-    displayData?.hashtags?.length
-      ? displayData.hashtags
-      : [];
+    setBulk(true);
+
+    for (const photo of photos) {
+      const link = document.createElement("a");
+
+      link.href = photo.download;
+      link.download = "";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      await new Promise((resolve) => setTimeout(resolve, 700));
+    }
+
+    setBulk(false);
+  }
+
+  const username = data?.author.username;
+  const displayName = data?.author.nickname || username || "TikTok User";
 
   return (
-    <main className="site-page">
-      <section className="hero-section">
-        <div className="brand-badge">
-          VIDZLY
-        </div>
-
-        <h1>TikTok Downloader</h1>
-
-        <p className="hero-description">
+    <main className="page">
+      <header className="hero">
+        <h1 className="logo">
+          Vid<span>zy</span>
+        </h1>
+        <p className="tagline">
           Unduh video dan slideshow TikTok dengan cepat dan mudah.
         </p>
+      </header>
 
-        <div className="download-card">
-          <form onSubmit={handleSubmit}>
-            <div className="url-input-wrap">
-              <input
-                value={url}
-                onChange={(event) =>
-                  setUrl(event.target.value)
-                }
-                placeholder="Masukkan tautan media..."
-                autoComplete="off"
-                spellCheck={false}
-              />
+      <form className="search" onSubmit={handleSubmit}>
+        <label className="field">
+          <span className="field-icon">
+            <LinkIcon />
+          </span>
 
-              {url && (
-                <button
-                  type="button"
-                  className="clear-url"
-                  onClick={handleClear}
-                  aria-label="Hapus URL"
-                >
-                  ×
-                </button>
-              )}
-            </div>
+          <input
+            value={url}
+            onChange={(event) => setUrl(event.target.value)}
+            placeholder="Tempel URL TikTok di sini..."
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            inputMode="url"
+          />
 
+          {url && (
             <button
-              type="submit"
-              className="main-download-button"
-              disabled={loading}
+              type="button"
+              className="field-clear"
+              onClick={handleClear}
+              aria-label="Hapus URL"
             >
-              {loading
-                ? "Memproses..."
-                : "Unduh"}
+              ×
             </button>
-          </form>
-
-          <p className="copyright-reminder">
-            Pengingat: Hormati karya dan hak kekayaan intelektual kreator.
-          </p>
-
-          {error && (
-            <div className="error-box">
-              <div className="error-icon">
-                !
-              </div>
-
-              <div>
-                <strong>
-                  Gagal memproses media
-                </strong>
-
-                <p>{error}</p>
-              </div>
-            </div>
           )}
+        </label>
+
+        <button type="submit" className="btn btn-primary btn-search" disabled={loading}>
+          {loading ? (
+            <span className="spinner" aria-hidden="true" />
+          ) : (
+            <DownloadIcon />
+          )}
+          <span>{loading ? "Memproses" : "Unduh"}</span>
+        </button>
+      </form>
+
+      {error && (
+        <div className="alert" role="alert">
+          <span className="alert-icon">!</span>
+          <div>
+            <strong>Gagal memproses media</strong>
+            <p>{error}</p>
+          </div>
         </div>
-      </section>
+      )}
 
-      {data && (
-        <section className="result-section">
-          <div className="section-heading">
-            <span>VIDEO UTAMA</span>
-          </div>
-
-          <div className="video-card">
-            {data.downloadUrl ? (
-              <video
-                className="main-video"
-                controls
-                playsInline
-                preload="none"
-                poster={data.cover}
-                src={`/api/download?url=${encodeURIComponent(
-                  data.downloadUrl
-                )}`}
-              />
-            ) : data.cover ? (
-              <img
-                className="main-video-image"
-                src={data.cover}
-                alt="Preview TikTok"
-              />
-            ) : (
-              <div className="video-empty">
-                Preview video tidak tersedia.
-              </div>
-            )}
-
-            {videoDownloadHref && (
-              <a
-                className="download-vt-button"
-                href={videoDownloadHref}
-              >
-                <span className="download-icon">
-                  ↓
-                </span>
-
-                <span>
-                  Download VT
-                </span>
-              </a>
-            )}
-          </div>
+      {loading && (
+        <section className="card" aria-busy="true">
+          <div className="stage skeleton" />
+          <div className="skeleton skeleton-btn" />
         </section>
       )}
 
-      {photoData && activePhoto && (
-        <section className="result-section">
-          <div className="section-heading">
-            <span>SLIDESHOW TIKTOK</span>
-          </div>
-
-          <div className="photo-card">
-            <div className="photo-viewer">
-              <img
-                src={activePhoto.downloadUrl}
-                alt={`Foto ${photoIndex + 1}`}
-                className="photo-main"
-              />
-
-              {photoData.photos.length > 1 && (
-                <>
-                  <button
-                    type="button"
-                    className="photo-nav photo-nav-left"
-                    onClick={previousPhoto}
-                    aria-label="Foto sebelumnya"
-                  >
-                    ‹
-                  </button>
-
-                  <button
-                    type="button"
-                    className="photo-nav photo-nav-right"
-                    onClick={nextPhoto}
-                    aria-label="Foto berikutnya"
-                  >
-                    ›
-                  </button>
-                </>
-              )}
-            </div>
-
-            {photoData.photos.length > 1 && (
-              <div className="photo-indicators">
-                {photoData.photos.map(
-                  (_, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      className={
-                        index === photoIndex
-                          ? "photo-dot active"
-                          : "photo-dot"
-                      }
-                      onClick={() =>
-                        setPhotoIndex(index)
-                      }
-                      aria-label={`Foto ${
-                        index + 1
-                      }`}
-                    />
-                  )
-                )}
-              </div>
-            )}
-
-            <div className="photo-counter">
-              {photoIndex + 1} /{" "}
-              {photoData.photos.length}
-            </div>
-
-            {photoDownloadHref && (
-              <a
-                className="photo-download"
-                href={photoDownloadHref}
-                download
+      {data && !loading && (
+        <>
+          <section className="card">
+            {isPhoto && activePhoto ? (
+              <div
+                className="stage stage-slide"
+                onTouchStart={(event) => {
+                  touchStart.current = event.touches[0].clientX;
+                }}
+                onTouchEnd={onTouchEnd}
               >
-                <span className="download-icon">
-                  ↓
-                </span>
-
-                <span>
-                  Download Foto
-                </span>
-              </a>
-            )}
-          </div>
-        </section>
-      )}
-
-      {displayData && (
-        <section className="summary-section">
-          <div className="summary-header">
-            <span>RANGKUMAN VT</span>
-            <span>Informasi Video</span>
-          </div>
-
-          <div className="creator-row">
-            <div className="avatar-wrap">
-              {displayData.author?.avatar ? (
                 <img
-                  src={displayData.author.avatar}
-                  alt={
-                    displayData.author.nickname ||
-                    displayData.author.username ||
-                    "TikTok"
-                  }
-                  className="creator-avatar"
+                  className="stage-blur"
+                  src={activePhoto.src}
+                  alt=""
+                  aria-hidden="true"
                 />
-              ) : (
-                <div className="avatar-placeholder">
-                  {(
-                    displayData.author?.nickname ||
-                    displayData.author?.username ||
-                    "T"
-                  )[0].toUpperCase()}
-                </div>
-              )}
-            </div>
+                <img
+                  className="stage-img"
+                  src={activePhoto.src}
+                  alt={`Slide ${slide + 1}`}
+                  draggable={false}
+                />
 
-            <div className="creator-info">
-              <div className="creator-name">
-                {displayData.author?.nickname ||
-                  displayData.author?.username ||
-                  "TikTok User"}
+                <span className="badge badge-left">Slide</span>
+                <span className="badge badge-right">
+                  {slide + 1} / {photos.length}
+                </span>
 
-                {displayData.author?.verified && (
-                  <span className="verified-badge">
-                    ✓
-                  </span>
+                {photos.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      className="nav nav-left"
+                      onClick={() => goTo(slide - 1)}
+                      aria-label="Slide sebelumnya"
+                    >
+                      ‹
+                    </button>
+                    <button
+                      type="button"
+                      className="nav nav-right"
+                      onClick={() => goTo(slide + 1)}
+                      aria-label="Slide berikutnya"
+                    >
+                      ›
+                    </button>
+                    <div className="dots">
+                      {photos.map((_, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          className={index === slide ? "dot active" : "dot"}
+                          onClick={() => goTo(index)}
+                          aria-label={`Slide ${index + 1}`}
+                        />
+                      ))}
+                    </div>
+                  </>
                 )}
               </div>
-
-              {displayData.author?.username && (
-                <div className="creator-username">
-                  @{displayData.author.username}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="stats-grid">
-            <div className="stat-item">
-              <strong>
-                {formatNumber(
-                  displayData.stats?.views
-                )}
-              </strong>
-
-              <span>Views</span>
-            </div>
-
-            <div className="stat-item">
-              <strong>
-                {formatNumber(
-                  displayData.stats?.likes
-                )}
-              </strong>
-
-              <span>Likes</span>
-            </div>
-
-            <div className="stat-item">
-              <strong>
-                {formatNumber(
-                  displayData.stats?.comments
-                )}
-              </strong>
-
-              <span>Komentar</span>
-            </div>
-
-            <div className="stat-item">
-              <strong>
-                {formatNumber(
-                  displayData.stats?.shares
-                )}
-              </strong>
-
-              <span>Repost</span>
-            </div>
-          </div>
-
-          {displayData.description && (
-            <div className="caption-box">
-              <div className="caption-label">
-                Caption
+            ) : playing && data.video ? (
+              <div className="stage stage-playing">
+                <video
+                  className="player"
+                  src={data.video.src}
+                  poster={data.cover ?? undefined}
+                  controls
+                  autoPlay
+                  playsInline
+                />
               </div>
+            ) : (
+              <button
+                type="button"
+                className="stage stage-thumb"
+                onClick={() => data.video && setPlaying(true)}
+                aria-label="Putar video"
+              >
+                {data.cover ? (
+                  <img className="thumb" src={data.cover} alt="Thumbnail video" />
+                ) : (
+                  <span className="thumb thumb-empty" />
+                )}
+                <span className="play">
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M8 5.500v13a1 1 0 0 0 1.500.9l10.500-6.500a1 1 0 0 0 0-1.800L9.500 4.600A1 1 0 0 0 8 5.500Z" />
+                  </svg>
+                </span>
+              </button>
+            )}
 
-              <p>
-                {displayData.description}
-              </p>
-            </div>
-          )}
+            {isPhoto && activePhoto ? (
+              <div className="actions">
+                <a className="btn btn-primary btn-block" href={activePhoto.download}>
+                  <DownloadIcon />
+                  <span>Download Slide {slide + 1}</span>
+                </a>
 
-          {hashtags.length > 0 && (
-            <div className="hashtag-list">
-              {hashtags.map(
-                (tag, index) => (
-                  <span
-                    key={
-                      tag.hashtagId ||
-                      index
-                    }
+                {photos.length > 1 && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-block"
+                    onClick={downloadAll}
+                    disabled={bulk}
                   >
-                    #
-                    {tag.hashtagName?.replace(
-                      /^#/,
-                      ""
-                    )}
-                  </span>
-                )
+                    <DownloadIcon />
+                    <span>
+                      {bulk ? "Mengunduh..." : `Download Semua (${photos.length})`}
+                    </span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              data.video && (
+                <div className="actions">
+                  <a className="btn btn-primary btn-block" href={data.video.download}>
+                    <DownloadIcon />
+                    <span>Download</span>
+                  </a>
+                </div>
+              )
+            )}
+          </section>
+
+          <section className="card info">
+            <div className="profile">
+              {data.author.avatar ? (
+                <img className="avatar" src={data.author.avatar} alt={displayName} />
+              ) : (
+                <span className="avatar avatar-fallback">
+                  {displayName[0].toUpperCase()}
+                </span>
+              )}
+
+              <div className="profile-text">
+                <strong>{displayName}</strong>
+                {username && <span>@{username}</span>}
+              </div>
+
+              {data.profileUrl && (
+                <a
+                  className="btn btn-outline"
+                  href={data.profileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <ExternalIcon />
+                  <span>Kunjungi</span>
+                </a>
               )}
             </div>
-          )}
-        </section>
+
+            <div className="stats">
+              <div className="stat">
+                <div className="stat-top">
+                  <HeartIcon />
+                  <strong>{formatNumber(data.stats.likes)}</strong>
+                </div>
+                <span>Likes</span>
+              </div>
+              <div className="stat">
+                <div className="stat-top">
+                  <CommentIcon />
+                  <strong>{formatNumber(data.stats.comments)}</strong>
+                </div>
+                <span>Komentar</span>
+              </div>
+              <div className="stat">
+                <div className="stat-top">
+                  <RepostIcon />
+                  <strong>{formatNumber(data.stats.shares)}</strong>
+                </div>
+                <span>Repost</span>
+              </div>
+              <div className="stat">
+                <div className="stat-top">
+                  <ViewsIcon />
+                  <strong>{formatNumber(data.stats.views)}</strong>
+                </div>
+                <span>Views</span>
+              </div>
+            </div>
+
+            {data.description && (
+              <div className="caption">
+                <div className="caption-label">
+                  <CaptionIcon />
+                  <span>Caption</span>
+                </div>
+                <p>{data.description}</p>
+              </div>
+            )}
+          </section>
+        </>
       )}
 
-      <footer className="site-footer">
-        <p>
-          Gunakan hanya untuk konten yang kamu berhak unduh.
-        </p>
-
-        <p>
-          Vidzly memproses tautan TikTok melalui layanan pihak ketiga.
-        </p>
+      <footer className="footer">
+        Gunakan hanya untuk konten yang kamu berhak unduh. Hormati karya kreator.
       </footer>
     </main>
   );
