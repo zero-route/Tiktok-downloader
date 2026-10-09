@@ -1,6 +1,6 @@
 
 import ffmpegPath from "ffmpeg-static";
-import ffprobeInstaller from "@ffprobe-installer/ffprobe";
+import { createRequire } from "node:module";
 import { spawn } from "node:child_process";
 import {
   mkdtemp,
@@ -15,6 +15,9 @@ import type {
   SlideshowInput,
   SlideshowResult,
 } from "./types";
+
+const require = createRequire(import.meta.url);
+const ffprobePath: string = require("@ffprobe-installer/linux-x64").path;
 
 const MAX_IMAGES = 30;
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
@@ -40,7 +43,9 @@ function isAllowedUrl(value: string): URL {
     );
 
   if (!allowed) {
-    throw new Error("URL aset bukan berasal dari domain TikTok yang diizinkan.");
+    throw new Error(
+      "URL aset bukan berasal dari domain TikTok yang diizinkan.",
+    );
   }
 
   return url;
@@ -69,7 +74,9 @@ async function downloadAsset(
         throw new Error("Redirect aset tidak valid.");
       }
 
-      url = isAllowedUrl(new URL(location, url).toString());
+      url = isAllowedUrl(
+        new URL(location, url).toString(),
+      );
       continue;
     }
 
@@ -111,7 +118,9 @@ async function downloadAsset(
     reader.releaseLock();
   }
 
-  return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
+  return Buffer.concat(
+    chunks.map((chunk) => Buffer.from(chunk)),
+  );
 }
 
 function run(
@@ -144,7 +153,9 @@ function run(
 
     const timer = setTimeout(() => {
       child.kill("SIGKILL");
-      reject(new Error("Proses FFmpeg melewati batas waktu."));
+      reject(
+        new Error("Proses media melewati batas waktu."),
+      );
     }, timeoutMs);
 
     child.on("error", (error) => {
@@ -157,7 +168,9 @@ function run(
 
       if (code !== 0) {
         reject(
-          new Error(`Proses media gagal: ${stderr.slice(-2000)}`),
+          new Error(
+            `Proses media gagal: ${stderr.slice(-2000)}`,
+          ),
         );
         return;
       }
@@ -167,9 +180,11 @@ function run(
   });
 }
 
-async function getAudioDuration(audioPath: string): Promise<number> {
+async function getAudioDuration(
+  audioPath: string,
+): Promise<number> {
   const output = await run(
-    ffprobeInstaller.path,
+    ffprobePath,
     [
       "-v",
       "error",
@@ -203,7 +218,9 @@ export async function renderSlideshow(
     input.images.length < 1 ||
     input.images.length > MAX_IMAGES
   ) {
-    throw new Error(`Jumlah gambar harus antara 1–${MAX_IMAGES}.`);
+    throw new Error(
+      `Jumlah gambar harus antara 1–${MAX_IMAGES}.`,
+    );
   }
 
   isAllowedUrl(input.audioUrl);
@@ -298,7 +315,9 @@ export async function renderSlideshow(
     const outputStat = await stat(outputPath);
 
     if (outputStat.size > MAX_OUTPUT_BYTES) {
-      throw new Error("Hasil video melebihi batas ukuran.");
+      throw new Error(
+        "Hasil video melebihi batas ukuran.",
+      );
     }
 
     const buffer = await readFile(outputPath);
@@ -309,6 +328,9 @@ export async function renderSlideshow(
       imageCount: imagePaths.length,
     };
   } finally {
-    await rm(workDir, { recursive: true, force: true });
+    await rm(workDir, {
+      recursive: true,
+      force: true,
+    });
   }
 }
