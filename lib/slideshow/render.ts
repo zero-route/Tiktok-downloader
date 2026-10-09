@@ -17,7 +17,10 @@ import type {
 } from "./types";
 
 const require = createRequire(import.meta.url);
-const ffprobePath: string = require("@ffprobe-installer/linux-x64").path;
+
+const ffprobePath: string = require(
+  "@ffprobe-installer/ffprobe"
+).path;
 
 const MAX_IMAGES = 30;
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
