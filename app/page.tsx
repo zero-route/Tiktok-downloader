@@ -20,6 +20,7 @@ type MediaData = {
     avatar: string | null;
   };
   video: MediaFile | null;
+  slideshow: { images: string[]; audioUrl: string } | null;
   photos: MediaFile[];
 };
 
@@ -102,6 +103,8 @@ export default function Home() {
   const [playing, setPlaying] = useState(false);
   const [slide, setSlide] = useState(0);
   const [bulk, setBulk] = useState(false);
+  const [rendering, setRendering] = useState(false);
+  const [slideshowError, setSlideshowError] = useState("");
   const [ratio, setRatio] = useState<number | null>(null);
   const [avatarFailed, setAvatarFailed] = useState(false);
   const touchStart = useRef<number | null>(null);
@@ -160,6 +163,7 @@ export default function Home() {
     setSlide(0);
     setRatio(null);
     setAvatarFailed(false);
+    setSlideshowError("");
 
     try {
       const response = await fetch(
@@ -195,6 +199,7 @@ export default function Home() {
     setSlide(0);
     setRatio(null);
     setAvatarFailed(false);
+    setSlideshowError("");
   }
 
   function goTo(index: number) {
@@ -238,6 +243,48 @@ export default function Home() {
   }
 
   const username = data?.author.username;
+
+  async function downloadSlideshow() {
+    if (!data?.slideshow || rendering) return;
+
+    setRendering(true);
+    setSlideshowError("");
+
+    try {
+      const response = await fetch("/api/slideshow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data.slideshow),
+      });
+
+      if (!response.ok) {
+        const result = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+
+        throw new Error(result?.error || "Gagal membuat slideshow.");
+      }
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = objectUrl;
+      link.download = `Vidzy_${username || "tiktok"}_slideshow.mp4`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 30_000);
+    } catch (err) {
+      setSlideshowError(
+        err instanceof Error ? err.message : "Gagal membuat slideshow."
+      );
+    } finally {
+      setRendering(false);
+    }
+  }
+
   const displayName = data?.author.nickname || username || "TikTok User";
 
   return (
@@ -436,6 +483,36 @@ export default function Home() {
                   <DownloadIcon />
                   <span>Download Slide {slide + 1}</span>
                 </a>
+
+                {data.slideshow && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-block"
+                    onClick={downloadSlideshow}
+                    disabled={rendering}
+                  >
+                    {rendering ? (
+                      <span className="spinner" aria-hidden="true" />
+                    ) : (
+                      <DownloadIcon />
+                    )}
+                    <span>
+                      {rendering
+                        ? "Membuat video..."
+                        : "Download Slideshow (MP4 + Audio)"}
+                    </span>
+                  </button>
+                )}
+
+                {slideshowError && (
+                  <div className="alert" role="alert">
+                    <span className="alert-icon">!</span>
+                    <div>
+                      <strong>Gagal membuat slideshow</strong>
+                      <p>{slideshowError}</p>
+                    </div>
+                  </div>
+                )}
 
                 {photos.length > 1 && (
                   <button
