@@ -530,7 +530,7 @@ export default function Home() {
             {hashtags.length > 0 && (
               <div className="hashtags">
                 <div className="caption-label">
-                  <span>Hashtag</span>
+                  <span>#Hashtag</span>
                 </div>
                 <div className="hashtag-list">
                   {hashtags.map((tag) => (
