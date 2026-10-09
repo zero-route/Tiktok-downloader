@@ -48,6 +48,16 @@ function str(value: unknown) {
     return String(value);
   }
 
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = str(item);
+
+      if (found) {
+        return found;
+      }
+    }
+  }
+
   return undefined;
 }
 
@@ -86,12 +96,14 @@ const URL_KEYS = [
 ];
 
 function collectUrls(value: unknown, depth = 0): string[] {
-  if (depth > 5) {
+  if (depth > 7) {
     return [];
   }
 
   if (typeof value === "string") {
-    return /^https?:\/\//i.test(value.trim()) ? [value.trim()] : [];
+    const url = value.trim();
+
+    return /^https?:\/\//i.test(url) ? [url] : [];
   }
 
   if (Array.isArray(value)) {
@@ -99,6 +111,16 @@ function collectUrls(value: unknown, depth = 0): string[] {
   }
 
   if (isObj(value)) {
+    const directUrls = Object.values(value).flatMap((item) =>
+      typeof item === "string" && /^https?:\/\//i.test(item.trim())
+        ? [item.trim()]
+        : []
+    );
+
+    if (directUrls.length > 0) {
+      return directUrls;
+    }
+
     for (const key of URL_KEYS) {
       if (key in value) {
         const found = collectUrls(value[key], depth + 1);
@@ -137,7 +159,9 @@ function pickUrl(sources: Json[], keys: string[], image = false) {
   for (const source of sources) {
     for (const key of keys) {
       if (key in source) {
-        const found = image ? bestImageUrl(source[key]) : firstUrl(source[key]);
+        const found = image
+          ? bestImageUrl(source[key])
+          : firstUrl(source[key]);
 
         if (found) {
           return found;
@@ -161,32 +185,6 @@ function pickStr(sources: Json[], keys: string[]) {
   }
 
   return undefined;
-}
-
-function pickDescription(sources: Json[], keys: string[]): string {
-  for (const source of sources) {
-    for (const key of keys) {
-      const value = source[key];
-
-      if (typeof value === "string" && value.trim()) {
-        return value.trim();
-      }
-
-      if (Array.isArray(value)) {
-        const text = value
-          .filter((item): item is string => typeof item === "string")
-          .map((item) => item.trim())
-          .filter(Boolean)
-          .join("\n");
-
-        if (text) {
-          return text;
-        }
-      }
-    }
-  }
-
-  return "";
 }
 
 function pickNum(sources: Json[], keys: string[]) {
@@ -282,7 +280,10 @@ function usernameFromUrl(value: string) {
   }
 }
 
-export function normalizeMedia(payload: unknown, inputUrl: string): TikTokMedia {
+export function normalizeMedia(
+  payload: unknown,
+  inputUrl: string
+): TikTokMedia {
   const root = unwrap(payload);
 
   if (!root) {
@@ -334,7 +335,7 @@ export function normalizeMedia(payload: unknown, inputUrl: string): TikTokMedia 
     );
   }
 
-  const authorSources = authorObj ? [authorObj] : [];
+  const authorSources = authorObj ? [authorObj, root] : [root];
 
   const username =
     pickStr(authorSources, [
@@ -343,53 +344,99 @@ export function normalizeMedia(payload: unknown, inputUrl: string): TikTokMedia 
       "username",
       "user_name",
       "handle",
+      "author",
     ]) ??
-    (typeof authorRaw === "string" ? authorRaw.replace(/^@/, "") : undefined) ??
-    pickStr([root], ["unique_id", "uniqueId", "username", "author_username"]) ??
+    (typeof authorRaw === "string"
+      ? authorRaw.replace(/^@/, "")
+      : undefined) ??
     usernameFromUrl(inputUrl) ??
     null;
 
   const nickname =
-    pickStr(authorSources, ["nickname", "nick_name", "name", "display_name"]) ??
-    pickStr([root], ["nickname", "author_name", "authorName"]) ??
-    null;
+    pickStr(authorSources, [
+      "nickname",
+      "nick_name",
+      "name",
+      "display_name",
+      "author_name",
+      "authorName",
+    ]) ?? null;
 
-  const avatar =
-    pickUrl(authorSources.length ? authorSources : [root], [
-      "avatar",
-      "avatar_thumb",
-      "avatarThumb",
-      "avatar_medium",
-      "avatarMedium",
-      "avatar_larger",
-      "avatarLarger",
-      "avatar_url",
-    ], true) ?? null;
+  const avatarKeys = [
+    "avatar_thumb",
+    "avatarThumb",
+    "avatar",
+    "avatar_url",
+    "avatarUrl",
+    "avatar_medium",
+    "avatarMedium",
+    "avatar_larger",
+    "avatarLarger",
+    "avatar_168x168",
+    "avatar_300x300",
+    "avatar_64",
+    "avatar_100",
+    "avatar_uri",
+    "avatarUri",
+    "profile_picture",
+    "profilePicture",
+    "profile_pic",
+    "profilePic",
+    "user_avatar",
+    "userAvatar",
+  ];
+
+  const avatarSources = [
+    ...(authorObj ? [authorObj] : []),
+    root,
+  ];
+
+  const avatar = pickUrl(avatarSources, avatarKeys, true) ?? null;
 
   const statSources = statsObj ? [statsObj, root] : [root];
 
   const cover =
-    pickUrl(mediaSources, [
-      "cover",
-      "origin_cover",
-      "originCover",
-      "dynamic_cover",
-      "dynamicCover",
-      "thumbnail",
-      "thumb",
-      "poster",
-    ], true) ??
+    pickUrl(
+      mediaSources,
+      [
+        "cover",
+        "origin_cover",
+        "originCover",
+        "dynamic_cover",
+        "dynamicCover",
+        "thumbnail",
+        "thumb",
+        "poster",
+      ],
+      true
+    ) ??
     photos[0] ??
     null;
 
   return {
-    id: pickStr([root], ["id", "aweme_id", "awemeId", "video_id", "videoId"]) ?? null,
+    id:
+      pickStr([root], [
+        "id",
+        "aweme_id",
+        "awemeId",
+        "video_id",
+        "videoId",
+        "videoid",
+      ]) ?? null,
     type: photos.length > 0 ? "photo" : "video",
-    author: { username, nickname, avatar },
-    description: pickDescription(
-      [root],
-      ["description", "desc", "caption", "title", "text"]
-    ),
+    author: {
+      username,
+      nickname,
+      avatar,
+    },
+    description:
+      pickStr([root], [
+        "title",
+        "desc",
+        "description",
+        "caption",
+        "text",
+      ]) ?? "",
     cover,
     stats: {
       likes: pickNum(statSources, [
@@ -425,6 +472,7 @@ export function normalizeMedia(payload: unknown, inputUrl: string): TikTokMedia 
 }
 
 const POST_PATH = /^\/@[^/]+\/(video|photo)\/\d+/;
+
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
 
@@ -455,7 +503,10 @@ async function resolvePostUrl(inputUrl: string) {
         method: "GET",
         redirect: "manual",
         cache: "no-store",
-        headers: { "User-Agent": USER_AGENT, Accept: "text/html,*/*" },
+        headers: {
+          "User-Agent": USER_AGENT,
+          Accept: "text/html,*/*",
+        },
       });
 
       const location = response.headers.get("location");
@@ -538,8 +589,12 @@ export async function fetchTikTokMedia(inputUrl: string) {
     );
   }
 
-  const videoPath = normalizePath(process.env.RAPIDAPI_VIDEO_PATH || "/vid/index");
-  const photoPath = normalizePath(process.env.RAPIDAPI_PHOTO_PATH || "/index");
+  const videoPath = normalizePath(
+    process.env.RAPIDAPI_VIDEO_PATH || "/vid/index"
+  );
+  const photoPath = normalizePath(
+    process.env.RAPIDAPI_PHOTO_PATH || "/index"
+  );
 
   const targetUrl = await resolvePostUrl(inputUrl);
   const isPhoto = /\/photo\/\d+/.test(targetUrl);
@@ -557,10 +612,16 @@ export async function fetchTikTokMedia(inputUrl: string) {
         error instanceof ProviderError
           ? error
           : new ProviderError(
-              error instanceof Error ? error.message : "Gagal memanggil provider."
+              error instanceof Error
+                ? error.message
+                : "Gagal memanggil provider."
             );
 
-      if (failure.status === 429 || failure.status === 403 || failure.status === 500) {
+      if (
+        failure.status === 429 ||
+        failure.status === 403 ||
+        failure.status === 500
+      ) {
         throw failure;
       }
 
