@@ -1,4 +1,3 @@
-
 const DEFAULT_HOST =
   "tiktok-downloader-download-tiktok-videos-without-watermark.p.rapidapi.com";
 
@@ -144,6 +143,15 @@ function firstUrl(value: unknown): string | undefined {
   return collectUrls(value)[0];
 }
 
+function imageRank(url: string) {
+  if (/\.jpe?g(\?|$)/i.test(url)) return 0;
+  if (/\.webp(\?|$)/i.test(url)) return 1;
+  if (/\.png(\?|$)/i.test(url)) return 2;
+  if (/\.(heic|heif|avif)(\?|$)/i.test(url)) return 4;
+
+  return 3;
+}
+
 function bestImageUrl(value: unknown): string | undefined {
   const urls = collectUrls(value);
 
@@ -151,13 +159,7 @@ function bestImageUrl(value: unknown): string | undefined {
     return undefined;
   }
 
-  const usable = urls.filter((url) => !/\.heic?(\?|$)/i.test(url));
-
-  return (
-    usable.find((url) => /\.(jpe?g|webp|png)(\?|$)/i.test(url)) ??
-    usable[0] ??
-    urls[0]
-  );
+  return [...urls].sort((a, b) => imageRank(a) - imageRank(b))[0];
 }
 
 function pickUrl(sources: Json[], keys: string[], image = false) {
