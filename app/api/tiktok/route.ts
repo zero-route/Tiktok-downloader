@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
         description: media.description,
         stats: media.stats,
         originalUrl: inputUrl,
+        meta: media.meta,
         profileUrl: media.author.username
           ? `https://www.tiktok.com/@${media.author.username}`
           : null,
