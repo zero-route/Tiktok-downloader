@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { randomUUID } from "crypto";
 import { verifyUrl } from "@/lib/sign";
 
 export const runtime = "nodejs";
@@ -158,7 +157,7 @@ export async function GET(request: NextRequest) {
         parsed.pathname.split(".").pop()?.toLowerCase().slice(0, 5) ||
         "bin";
 
-      const filename = `Vidzy_${sanitizeName(name)}_${randomUUID()}.${extension}`;
+      const filename = `Vidzy_${sanitizeName(name)}.${extension}`;
 
       out.set("Content-Disposition", `attachment; filename="${filename}"`);
       out.set("Cache-Control", "no-store");
