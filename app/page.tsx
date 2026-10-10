@@ -121,6 +121,7 @@ export default function Home() {
   const [slideshowFile, setSlideshowFile] = useState<{
     url: string;
     name: string;
+    duration: number;
   } | null>(null);
 
   useEffect(() => {
@@ -323,12 +324,28 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        const result = (await response.json().catch(() => null)) as {
-          error?: string;
-        } | null;
+        const raw = await response.text().catch(() => "");
+        let message = "";
 
-        throw new Error(result?.error || "Gagal membuat slideshow.");
+        try {
+          message = (JSON.parse(raw) as { error?: string }).error || "";
+        } catch {
+          message = "";
+        }
+
+        if (!message) {
+          message =
+            response.status === 413
+              ? "Hasil video terlalu besar untuk dikirim server."
+              : response.status === 504 || response.status === 408
+                ? "Proses pembuatan video melewati batas waktu server."
+                : `Server mengembalikan kesalahan (HTTP ${response.status}).`;
+        }
+
+        throw new Error(message);
       }
+
+      const duration = Number(response.headers.get("X-Slideshow-Duration")) || 0;
 
       const blob = await response.blob();
       const objectUrl = URL.createObjectURL(blob);
@@ -341,7 +358,7 @@ export default function Home() {
       link.click();
       link.remove();
 
-      setSlideshowFile({ url: objectUrl, name: fileName });
+      setSlideshowFile({ url: objectUrl, name: fileName, duration });
     } catch (err) {
       setSlideshowError(
         err instanceof Error ? err.message : "Gagal membuat slideshow."
@@ -595,6 +612,14 @@ export default function Home() {
                     <div>
                       <strong>Slideshow berhasil dibuat</strong>
                       <p>
+                        {slideshowFile.duration > 0 &&
+                          `Durasi ${Math.floor(slideshowFile.duration / 60)}:${String(
+                            Math.round(slideshowFile.duration % 60)
+                          ).padStart(2, "0")}${
+                            slideshowFile.duration >= 179
+                              ? " (dipotong maksimal 3 menit). "
+                              : ". "
+                          }`}
                         Video sudah diunduh dan tersimpan di folder unduhan
                         perangkatmu. Kalau belum muncul, unduh ulang lewat
                         tombol di bawah.
