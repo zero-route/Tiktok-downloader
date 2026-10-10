@@ -23,6 +23,8 @@ const MAX_IMAGES = 30;
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
 const MAX_AUDIO_BYTES = 30 * 1024 * 1024;
 const MAX_OUTPUT_BYTES = 100 * 1024 * 1024;
+const MAX_DURATION_SECONDS = 180;
+const FPS = 10;
 
 const ALLOWED_DOMAINS = [
   "tiktokcdn-us.com",
@@ -310,12 +312,13 @@ export async function renderSlideshow(
 
     await writeFile(audioPath, audioBuffer);
 
-    const duration = await getAudioDuration(ffmpegPath, audioPath);
+    const audioDuration = await getAudioDuration(ffmpegPath, audioPath);
+    const duration = Math.min(audioDuration, MAX_DURATION_SECONDS);
     const imageDuration = duration / imagePaths.length;
 
     const inputArgs = imagePaths.flatMap((imagePath) => [
       "-loop", "1",
-      "-framerate", "30",
+      "-framerate", String(FPS),
       "-t", imageDuration.toFixed(6),
       "-i", imagePath,
     ]);
@@ -325,7 +328,7 @@ export async function renderSlideshow(
         `[${index}:v]` +
         "scale=1080:1920:force_original_aspect_ratio=decrease," +
         "pad=1080:1920:(ow-iw)/2:(oh-ih)/2," +
-        "setsar=1,fps=30,format=yuv420p" +
+        `setsar=1,fps=${FPS},format=yuv420p` +
         `[v${index}]`,
     );
 
@@ -354,18 +357,19 @@ export async function renderSlideshow(
         "-map", `${imagePaths.length}:a:0`,
 
         "-c:v", "libx264",
-        "-preset", "ultrafast",
-        "-tune", "stillimage",
+        "-preset", "veryfast",
+        "-crf", "28",
+        "-g", String(FPS * 60),
 
         "-c:a", "aac",
-        "-b:a", "192k",
+        "-b:a", "96k",
 
         "-t", duration.toFixed(6),
         "-shortest",
         "-movflags", "+faststart",
         outputPath,
       ],
-      120_000,
+      55_000,
     );
 
     const outputStat = await stat(outputPath);
