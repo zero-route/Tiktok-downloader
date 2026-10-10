@@ -1,3 +1,4 @@
+
 const DEFAULT_HOST =
   "tiktok-downloader-download-tiktok-videos-without-watermark.p.rapidapi.com";
 
@@ -22,6 +23,7 @@ export type TikTokMedia = {
   videoUrl: string | null;
   audioUrl: string | null;
   photos: string[];
+  meta?: { backup: boolean; attempts: number };
 };
 
 export class ProviderError extends Error {
@@ -604,7 +606,37 @@ async function callProvider(
   return payload;
 }
 
-export async function fetchTikTokMedia(inputUrl: string) {
+const MAX_PROVIDER_ATTEMPTS = 3;
+const PROVIDER_RETRY_DELAY_MS = 1200;
+
+type ProviderResult = { media: TikTokMedia; backup: boolean };
+
+function isBackupPayload(payload: unknown) {
+  const root = unwrap(payload);
+
+  if (!root) {
+    return false;
+  }
+
+  return (
+    root.api_backup === true ||
+    /backup/i.test(String(root.method_used ?? ""))
+  );
+}
+
+function resultScore(result: ProviderResult) {
+  return (
+    (result.backup ? 0 : 4) +
+    (result.media.author.avatar ? 2 : 0) +
+    (result.media.description ? 1 : 0)
+  );
+}
+
+function isComplete(result: ProviderResult) {
+  return !result.backup && Boolean(result.media.author.avatar);
+}
+
+async function fetchOnce(targetUrl: string): Promise<ProviderResult> {
   const key = process.env.RAPIDAPI_KEY;
   const host = process.env.RAPIDAPI_HOST || DEFAULT_HOST;
 
@@ -622,7 +654,6 @@ export async function fetchTikTokMedia(inputUrl: string) {
     process.env.RAPIDAPI_PHOTO_PATH || "/index"
   );
 
-  const targetUrl = await resolvePostUrl(inputUrl);
   const isPhoto = /\/photo\/\d+/.test(targetUrl);
   const isVideo = /\/video\/\d+/.test(targetUrl);
   const order = isVideo ? [videoPath, photoPath] : [photoPath, videoPath];
@@ -639,7 +670,7 @@ export async function fetchTikTokMedia(inputUrl: string) {
         continue;
       }
 
-      return media;
+      return { media, backup: isBackupPayload(payload) };
     } catch (error) {
       const failure =
         error instanceof ProviderError
@@ -663,4 +694,56 @@ export async function fetchTikTokMedia(inputUrl: string) {
   }
 
   throw lastError ?? new ProviderError("Gagal memanggil provider.");
+}
+
+export async function fetchTikTokMedia(inputUrl: string) {
+  const targetUrl = await resolvePostUrl(inputUrl);
+
+  let best: ProviderResult | null = null;
+  let attempts = 0;
+
+  for (let attempt = 0; attempt < MAX_PROVIDER_ATTEMPTS; attempt++) {
+    if (attempt > 0) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, PROVIDER_RETRY_DELAY_MS)
+      );
+    }
+
+    attempts = attempt + 1;
+
+    let result: ProviderResult;
+
+    try {
+      result = await fetchOnce(targetUrl);
+    } catch (error) {
+      if (!best) {
+        throw error;
+      }
+
+      break;
+    }
+
+    console.info(
+      `[tiktok] attempt=${attempts} backup=${result.backup} avatar=${Boolean(
+        result.media.author.avatar
+      )} photos=${result.media.photos.length}`
+    );
+
+    if (!best || resultScore(result) > resultScore(best)) {
+      best = result;
+    }
+
+    if (isComplete(result)) {
+      break;
+    }
+  }
+
+  if (!best) {
+    throw new ProviderError("Gagal memanggil provider.");
+  }
+
+  return {
+    ...best.media,
+    meta: { backup: best.backup, attempts },
+  };
 }
