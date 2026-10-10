@@ -562,7 +562,7 @@ export default function Home() {
                 )}
 
                 {rendering && (
-                  <div className="alert" role="status">
+                  <div className="alert" role="status" style={{ marginTop: 18 }}>
                     <span className="spinner" aria-hidden="true" />
                     <div>
                       <strong>Sedang membuat video slideshow</strong>
@@ -576,7 +576,7 @@ export default function Home() {
                 )}
 
                 {slideshowFile && !rendering && (
-                  <div className="alert" role="status">
+                  <div className="alert" role="status" style={{ marginTop: 18 }}>
                     <span className="alert-icon">✓</span>
                     <div>
                       <strong>Slideshow berhasil dibuat</strong>
@@ -587,6 +587,7 @@ export default function Home() {
                       </p>
                       <a
                         className="btn btn-outline"
+                        style={{ marginTop: 14 }}
                         href={slideshowFile.url}
                         download={slideshowFile.name}
                       >
@@ -598,7 +599,7 @@ export default function Home() {
                 )}
 
                 {slideshowError && (
-                  <div className="alert" role="alert">
+                  <div className="alert" role="alert" style={{ marginTop: 18 }}>
                     <span className="alert-icon">!</span>
                     <div>
                       <strong>Gagal membuat slideshow</strong>
@@ -639,7 +640,7 @@ export default function Home() {
             )}
 
             {notice && (
-              <div className="alert" role="status">
+              <div className="alert" role="status" style={{ marginTop: 18 }}>
                 <span className="spinner" aria-hidden="true" />
                 <div>
                   <strong>{notice}</strong>
