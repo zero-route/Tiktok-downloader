@@ -107,9 +107,16 @@ type SmartImageProps = Omit<
   direct?: string | null;
   proxy: string;
   onFail?: () => void;
+  onEarlyFail?: () => void;
 };
 
-function SmartImage({ direct, proxy, onFail, ...rest }: SmartImageProps) {
+function SmartImage({
+  direct,
+  proxy,
+  onFail,
+  onEarlyFail,
+  ...rest
+}: SmartImageProps) {
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
@@ -126,6 +133,10 @@ function SmartImage({ direct, proxy, onFail, ...rest }: SmartImageProps) {
         : `${proxy}${separator}_retry=${attempt}`;
 
   function handleError() {
+    if (attempt === 1) {
+      onEarlyFail?.();
+    }
+
     if (attempt >= 6) {
       onFail?.();
       return;
@@ -206,6 +217,32 @@ export default function Home() {
   const [ratio, setRatio] = useState<number | null>(null);
   const [avatarFailed, setAvatarFailed] = useState(false);
   const touchStart = useRef<number | null>(null);
+  const submittedUrl = useRef("");
+  const refreshed = useRef(false);
+
+  async function refreshOnce() {
+    if (refreshed.current || !submittedUrl.current) return;
+
+    refreshed.current = true;
+
+    try {
+      const response = await fetch(
+        `/api/tiktok?url=${encodeURIComponent(submittedUrl.current)}`,
+        { cache: "no-store" }
+      );
+
+      const result = (await response
+        .json()
+        .catch(() => null)) as ApiResponse | null;
+
+      if (response.ok && result?.ok && result.data) {
+        setAvatarFailed(false);
+        setData(result.data);
+      }
+    } catch {
+      return;
+    }
+  }
 
   const photos = data?.photos ?? [];
   const stageStyle = ratio
@@ -254,6 +291,9 @@ export default function Home() {
       return;
     }
 
+    submittedUrl.current = value;
+    refreshed.current = false;
+
     setLoading(true);
     setError("");
     setData(null);
@@ -291,6 +331,7 @@ export default function Home() {
   }
 
   function handleClear() {
+    submittedUrl.current = "";
     setUrl("");
     setError("");
     setData(null);
@@ -505,6 +546,7 @@ export default function Home() {
                   alt={`Slide ${slide + 1}`}
                   draggable={false}
                   onLoad={captureRatio}
+                  onEarlyFail={refreshOnce}
                 />
 
                 <span className="badge badge-left">Slide</span>
@@ -578,6 +620,7 @@ export default function Home() {
                       proxy={data.cover}
                       alt="Thumbnail video"
                       onLoad={captureRatio}
+                      onEarlyFail={refreshOnce}
                     />
                   </>
                 ) : (
@@ -739,6 +782,7 @@ export default function Home() {
     proxy={data.author.avatar}
     alt={displayName}
     onFail={() => setAvatarFailed(true)}
+    onEarlyFail={refreshOnce}
   />
 ) : (
   <span className="avatar avatar-fallback">
