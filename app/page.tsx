@@ -3,6 +3,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+const alertSpacing: React.CSSProperties = { margin: "8px auto 0" };
+
 type MediaFile = {
   src: string;
   download: string;
@@ -562,8 +564,8 @@ export default function Home() {
                 )}
 
                 {rendering && (
-                  <div className="alert" role="status" style={{ marginTop: 18 }}>
-                    <span className="spinner" aria-hidden="true" />
+                  <div className="alert" role="status" style={alertSpacing}>
+                    <span className="alert-icon">i</span>
                     <div>
                       <strong>Sedang membuat video slideshow</strong>
                       <p>
@@ -576,7 +578,7 @@ export default function Home() {
                 )}
 
                 {slideshowFile && !rendering && (
-                  <div className="alert" role="status" style={{ marginTop: 18 }}>
+                  <div className="alert" role="status" style={alertSpacing}>
                     <span className="alert-icon">✓</span>
                     <div>
                       <strong>Slideshow berhasil dibuat</strong>
@@ -599,7 +601,7 @@ export default function Home() {
                 )}
 
                 {slideshowError && (
-                  <div className="alert" role="alert" style={{ marginTop: 18 }}>
+                  <div className="alert" role="alert" style={alertSpacing}>
                     <span className="alert-icon">!</span>
                     <div>
                       <strong>Gagal membuat slideshow</strong>
@@ -640,8 +642,8 @@ export default function Home() {
             )}
 
             {notice && (
-              <div className="alert" role="status" style={{ marginTop: 18 }}>
-                <span className="spinner" aria-hidden="true" />
+              <div className="alert" role="status" style={alertSpacing}>
+                <span className="alert-icon">i</span>
                 <div>
                   <strong>{notice}</strong>
                   <p>
