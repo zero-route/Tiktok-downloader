@@ -10,8 +10,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const MAX_ATTEMPTS = 3;
-const RETRY_DELAY_MS = 600;
+const MAX_ATTEMPTS = 5;
+const RETRY_DELAY_MS = 500;
 
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
@@ -132,10 +132,11 @@ export async function GET(request: NextRequest) {
       !response.ok &&
       (response.status === 429 ||
         response.status === 403 ||
+        response.status === 404 ||
         response.status >= 500);
       attempt++
     ) {
-      await sleep(RETRY_DELAY_MS);
+      await sleep(RETRY_DELAY_MS * attempt);
 
       response = await fetch(chosen.toString(), {
         method: "GET",
