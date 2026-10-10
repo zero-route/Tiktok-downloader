@@ -531,7 +531,12 @@ async function resolvePostUrl(inputUrl: string) {
       const location = response.headers.get("location");
 
       if (!location) {
-        return inputUrl;
+        const html = await response.text().catch(() => "");
+        const found = html.match(
+          /https?:\/\/(?:www\.)?tiktok\.com\/@[^/"'\s?\\]+\/(?:video|photo)\/\d+/i
+        );
+
+        return found ? found[0] : inputUrl;
       }
 
       current = new URL(location, current).toString();
@@ -617,7 +622,8 @@ export async function fetchTikTokMedia(inputUrl: string) {
 
   const targetUrl = await resolvePostUrl(inputUrl);
   const isPhoto = /\/photo\/\d+/.test(targetUrl);
-  const order = isPhoto ? [photoPath, videoPath] : [videoPath, photoPath];
+  const isVideo = /\/video\/\d+/.test(targetUrl);
+  const order = isVideo ? [videoPath, photoPath] : [photoPath, videoPath];
 
   let lastError: ProviderError | null = null;
 
@@ -625,7 +631,13 @@ export async function fetchTikTokMedia(inputUrl: string) {
     try {
       const payload = await callProvider(host, key, path, targetUrl);
 
-      return normalizeMedia(payload, targetUrl);
+      const media = normalizeMedia(payload, targetUrl);
+
+      if (path === photoPath && !isPhoto && !isVideo && media.type !== "photo") {
+        continue;
+      }
+
+      return media;
     } catch (error) {
       const failure =
         error instanceof ProviderError
