@@ -257,12 +257,33 @@ export async function renderSlideshow(
         MAX_IMAGE_BYTES,
       );
 
-      const imagePath = path.join(
-        workDir,
-        `image-${String(i).padStart(3, "0")}.jpg`,
-      );
+      const index = String(i).padStart(3, "0");
+      const rawPath = path.join(workDir, `raw-${index}.bin`);
+      const imagePath = path.join(workDir, `image-${index}.jpg`);
 
-      await writeFile(imagePath, imageBuffer);
+      await writeFile(rawPath, imageBuffer);
+
+      try {
+        await run(
+          ffmpegPath,
+          [
+            "-hide_banner",
+            "-loglevel", "error",
+            "-y",
+            "-i", rawPath,
+            "-frames:v", "1",
+            "-pix_fmt", "yuvj420p",
+            "-q:v", "2",
+            imagePath,
+          ],
+          30_000,
+        );
+      } catch {
+        throw new Error(
+          `Format gambar slide ${i + 1} tidak didukung (kemungkinan HEIC/AVIF).`,
+        );
+      }
+
       imagePaths.push(imagePath);
     }
 
