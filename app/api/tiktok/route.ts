@@ -59,8 +59,10 @@ export async function GET(request: NextRequest) {
           username: media.author.username,
           nickname: media.author.nickname,
           avatar: media.author.avatar ? proxyPath(media.author.avatar) : null,
+          avatarDirect: media.author.avatar,
         },
         cover: media.cover ? proxyPath(media.cover) : null,
+        coverDirect: media.cover,
         video: media.videoUrl
           ? {
               src: proxyPath(media.videoUrl),
@@ -79,6 +81,7 @@ export async function GET(request: NextRequest) {
             : null,
         photos: media.photos.map((photo, index) => ({
           src: proxyPath(photo),
+          direct: photo,
           download: proxyPath(photo, {
             name: `${baseName}_${index + 1}`,
             download: true,
