@@ -272,7 +272,6 @@ export async function renderSlideshow(
     );
 
     const audioPath = path.join(workDir, "audio.mp3");
-    const concatPath = path.join(workDir, "images.txt");
     const outputPath = path.join(workDir, "slideshow.mp4");
 
     await writeFile(audioPath, audioBuffer);
@@ -280,15 +279,29 @@ export async function renderSlideshow(
     const duration = await getAudioDuration(ffmpegPath, audioPath);
     const imageDuration = duration / imagePaths.length;
 
-    const concatContent = [
-      ...imagePaths.flatMap((imagePath) => [
-        `file '${imagePath}'`,
-        `duration ${imageDuration.toFixed(6)}`,
-      ]),
-      `file '${imagePaths[imagePaths.length - 1]}'`,
-    ].join("\n");
+    const inputArgs = imagePaths.flatMap((imagePath) => [
+      "-loop", "1",
+      "-framerate", "30",
+      "-t", imageDuration.toFixed(6),
+      "-i", imagePath,
+    ]);
 
-    await writeFile(concatPath, concatContent);
+    const scaleChains = imagePaths.map(
+      (_, index) =>
+        `[${index}:v]` +
+        "scale=1080:1920:force_original_aspect_ratio=decrease," +
+        "pad=1080:1920:(ow-iw)/2:(oh-ih)/2," +
+        "setsar=1,fps=30,format=yuv420p" +
+        `[v${index}]`,
+    );
+
+    const concatInputs = imagePaths
+      .map((_, index) => `[v${index}]`)
+      .join("");
+
+    const filterGraph =
+      `${scaleChains.join(";")};` +
+      `${concatInputs}concat=n=${imagePaths.length}:v=1:a=0[video]`;
 
     await run(
       ffmpegPath,
@@ -297,21 +310,15 @@ export async function renderSlideshow(
         "-loglevel", "error",
         "-y",
 
-        "-f", "concat",
-        "-safe", "0",
-        "-i", concatPath,
+        ...inputArgs,
 
         "-i", audioPath,
 
-        "-map", "0:v:0",
-        "-map", "1:a:0",
+        "-filter_complex", filterGraph,
 
-        "-vf",
-        "scale=1080:1920:force_original_aspect_ratio=decrease," +
-          "pad=1080:1920:(ow-iw)/2:(oh-ih)/2," +
-          "setsar=1,format=yuv420p",
+        "-map", "[video]",
+        "-map", `${imagePaths.length}:a:0`,
 
-        "-r", "30",
         "-c:v", "libx264",
         "-preset", "ultrafast",
         "-tune", "stillimage",
