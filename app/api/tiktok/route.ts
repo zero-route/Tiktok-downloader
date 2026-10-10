@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
   try {
     const media = await fetchTikTokMedia(inputUrl);
     const username = media.author.username || "tiktok";
+    const baseName = media.id ? `${username}_${media.id}` : username;
 
     return NextResponse.json({
       ok: true,
@@ -64,7 +65,7 @@ export async function GET(request: NextRequest) {
           ? {
               src: proxyPath(media.videoUrl),
               download: proxyPath(media.videoUrl, {
-                name: username,
+                name: baseName,
                 download: true,
               }),
             }
@@ -76,9 +77,12 @@ export async function GET(request: NextRequest) {
                 audioUrl: media.audioUrl,
               }
             : null,
-        photos: media.photos.map((photo) => ({
+        photos: media.photos.map((photo, index) => ({
           src: proxyPath(photo),
-          download: proxyPath(photo, { name: username, download: true }),
+          download: proxyPath(photo, {
+            name: `${baseName}_${index + 1}`,
+            download: true,
+          }),
         })),
       },
     });
