@@ -122,6 +122,22 @@ export default function Home() {
     }
   }
 
+  function retryImage(event: React.SyntheticEvent<HTMLImageElement>) {
+    const image = event.currentTarget;
+    const attempts = Number(image.dataset.attempts || 0);
+
+    if (attempts >= 3) return;
+
+    image.dataset.attempts = String(attempts + 1);
+
+    const base = image.src.replace(/([&?])_retry=\d+/, "");
+    const separator = base.includes("?") ? "&" : "?";
+
+    setTimeout(() => {
+      image.src = `${base}${separator}_retry=${Date.now()}`;
+    }, 700 * (attempts + 1));
+  }
+
   const isPhoto = data?.type === "photo" && photos.length > 0;
   const activePhoto = isPhoto ? photos[slide] : null;
 
@@ -384,6 +400,7 @@ export default function Home() {
                   alt={`Slide ${slide + 1}`}
                   draggable={false}
                   onLoad={captureRatio}
+                  onError={retryImage}
                 />
 
                 <span className="badge badge-left">Slide</span>
@@ -455,6 +472,7 @@ export default function Home() {
                       src={data.cover}
                       alt="Thumbnail video"
                       onLoad={captureRatio}
+                  onError={retryImage}
                     />
                   </>
                 ) : (
