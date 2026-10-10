@@ -171,7 +171,7 @@ export default function Home() {
     const image = event.currentTarget;
     const attempts = Number(image.dataset.attempts || 0);
 
-    if (attempts >= 3) return;
+    if (attempts >= 6) return;
 
     image.dataset.attempts = String(attempts + 1);
 
@@ -180,7 +180,7 @@ export default function Home() {
 
     setTimeout(() => {
       image.src = `${base}${separator}_retry=${Date.now()}`;
-    }, 700 * (attempts + 1));
+    }, 600 * (attempts + 1));
   }
 
   const isPhoto = data?.type === "photo" && photos.length > 0;
@@ -443,6 +443,7 @@ export default function Home() {
                   src={activePhoto.src}
                   alt=""
                   aria-hidden="true"
+                  onError={retryImage}
                 />
                 <img
                   className="stage-img"
@@ -516,6 +517,7 @@ export default function Home() {
                       src={data.cover}
                       alt=""
                       aria-hidden="true"
+                  onError={retryImage}
                     />
                     <img
                       className="thumb"
@@ -677,16 +679,20 @@ export default function Home() {
     referrerPolicy="no-referrer"
     onError={(event) => {
       const image = event.currentTarget;
+      const attempts = Number(image.dataset.attempts || 0);
 
-      if (!image.dataset.retried) {
-        image.dataset.retried = "true";
-
-        const separator = data.author.avatar!.includes("?") ? "&" : "?";
-        image.src = `${data.author.avatar}${separator}_retry=${Date.now()}`;
+      if (attempts >= 5) {
+        setAvatarFailed(true);
         return;
       }
 
-      setAvatarFailed(true);
+      image.dataset.attempts = String(attempts + 1);
+
+      const separator = data.author.avatar!.includes("?") ? "&" : "?";
+
+      setTimeout(() => {
+        image.src = `${data.author.avatar}${separator}_retry=${Date.now()}`;
+      }, 800 * (attempts + 1));
     }}
   />
 ) : (
