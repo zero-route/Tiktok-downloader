@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type MediaFile = {
   src: string;
@@ -105,6 +105,29 @@ export default function Home() {
   const [bulk, setBulk] = useState(false);
   const [rendering, setRendering] = useState(false);
   const [slideshowError, setSlideshowError] = useState("");
+  const [elapsed, setElapsed] = useState(0);
+  const [slideshowFile, setSlideshowFile] = useState<{
+    url: string;
+    name: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!rendering) return;
+
+    setElapsed(0);
+
+    const timer = setInterval(() => {
+      setElapsed((value) => value + 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [rendering]);
+
+  useEffect(() => {
+    return () => {
+      if (slideshowFile) URL.revokeObjectURL(slideshowFile.url);
+    };
+  }, [slideshowFile]);
   const [ratio, setRatio] = useState<number | null>(null);
   const [avatarFailed, setAvatarFailed] = useState(false);
   const touchStart = useRef<number | null>(null);
@@ -180,6 +203,7 @@ export default function Home() {
     setRatio(null);
     setAvatarFailed(false);
     setSlideshowError("");
+    setSlideshowFile(null);
 
     try {
       const response = await fetch(
@@ -216,6 +240,7 @@ export default function Home() {
     setRatio(null);
     setAvatarFailed(false);
     setSlideshowError("");
+    setSlideshowFile(null);
   }
 
   function goTo(index: number) {
@@ -265,6 +290,7 @@ export default function Home() {
 
     setRendering(true);
     setSlideshowError("");
+    setSlideshowFile(null);
 
     try {
       const response = await fetch("/api/slideshow", {
@@ -283,15 +309,16 @@ export default function Home() {
 
       const blob = await response.blob();
       const objectUrl = URL.createObjectURL(blob);
+      const fileName = `Vidzy_${username || "tiktok"}_slideshow.mp4`;
       const link = document.createElement("a");
 
       link.href = objectUrl;
-      link.download = `Vidzy_${username || "tiktok"}_slideshow.mp4`;
+      link.download = fileName;
       document.body.appendChild(link);
       link.click();
       link.remove();
 
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 30_000);
+      setSlideshowFile({ url: objectUrl, name: fileName });
     } catch (err) {
       setSlideshowError(
         err instanceof Error ? err.message : "Gagal membuat slideshow."
@@ -516,10 +543,46 @@ export default function Home() {
                     )}
                     <span>
                       {rendering
-                        ? "Membuat video..."
+                        ? `Membuat video... (${elapsed} dtk)`
                         : "Download Slideshow (MP4 + Audio)"}
                     </span>
                   </button>
+                )}
+
+                {rendering && (
+                  <div className="alert" role="status">
+                    <span className="spinner" aria-hidden="true" />
+                    <div>
+                      <strong>Sedang membuat video slideshow</strong>
+                      <p>
+                        Menggabungkan foto dan audio, biasanya 10–40 detik.
+                        Jangan tutup atau keluar dari halaman ini. File akan
+                        terunduh otomatis setelah selesai.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {slideshowFile && !rendering && (
+                  <div className="alert" role="status">
+                    <span className="alert-icon">✓</span>
+                    <div>
+                      <strong>Slideshow berhasil dibuat</strong>
+                      <p>
+                        Video sudah diunduh dan tersimpan di folder unduhan
+                        perangkatmu. Kalau belum muncul, unduh ulang lewat
+                        tombol di bawah.
+                      </p>
+                      <a
+                        className="btn btn-outline"
+                        href={slideshowFile.url}
+                        download={slideshowFile.name}
+                      >
+                        <DownloadIcon size={18} />
+                        <span>Unduh Ulang</span>
+                      </a>
+                    </div>
+                  </div>
                 )}
 
                 {slideshowError && (
