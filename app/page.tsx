@@ -8,6 +8,7 @@ const alertSpacing: React.CSSProperties = { margin: "8px auto 0" };
 type MediaFile = {
   src: string;
   download: string;
+  direct?: string;
 };
 
 type MediaData = {
@@ -16,10 +17,12 @@ type MediaData = {
   description: string | string[] | null;
   profileUrl: string | null;
   cover: string | null;
+  coverDirect?: string | null;
   author: {
     username: string | null;
     nickname: string | null;
     avatar: string | null;
+    avatarDirect?: string | null;
   };
   video: MediaFile | null;
   slideshow: { images: string[]; audioUrl: string } | null;
@@ -97,6 +100,52 @@ function CaptionIcon() {
   );
 }
 
+type SmartImageProps = Omit<
+  React.ImgHTMLAttributes<HTMLImageElement>,
+  "src"
+> & {
+  direct?: string | null;
+  proxy: string;
+  onFail?: () => void;
+};
+
+function SmartImage({ direct, proxy, onFail, ...rest }: SmartImageProps) {
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    setAttempt(0);
+  }, [direct, proxy]);
+
+  const separator = proxy.includes("?") ? "&" : "?";
+
+  const src =
+    direct && attempt === 0
+      ? direct
+      : attempt <= 1
+        ? proxy
+        : `${proxy}${separator}_retry=${attempt}`;
+
+  function handleError() {
+    if (attempt >= 6) {
+      onFail?.();
+      return;
+    }
+
+    const delay = attempt === 0 ? 0 : 700 * attempt;
+
+    setTimeout(() => setAttempt((value) => value + 1), delay);
+  }
+
+  return (
+    <img
+      {...rest}
+      src={src}
+      referrerPolicy="no-referrer"
+      onError={handleError}
+    />
+  );
+}
+
 export default function Home() {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
@@ -128,9 +177,12 @@ export default function Home() {
     if (!data) return;
 
     data.photos.forEach((photo) => {
+      if (!photo.direct) return;
+
       const image = new Image();
 
-      image.src = photo.src;
+      image.referrerPolicy = "no-referrer";
+      image.src = photo.direct;
     });
   }, [data]);
 
@@ -166,22 +218,6 @@ export default function Home() {
     if (ratio === null && image.naturalWidth && image.naturalHeight) {
       setRatio(image.naturalWidth / image.naturalHeight);
     }
-  }
-
-  function retryImage(event: React.SyntheticEvent<HTMLImageElement>) {
-    const image = event.currentTarget;
-    const attempts = Number(image.dataset.attempts || 0);
-
-    if (attempts >= 6) return;
-
-    image.dataset.attempts = String(attempts + 1);
-
-    const base = image.src.replace(/([&?])_retry=\d+/, "");
-    const separator = base.includes("?") ? "&" : "?";
-
-    setTimeout(() => {
-      image.src = `${base}${separator}_retry=${Date.now()}`;
-    }, 600 * (attempts + 1));
   }
 
   const isPhoto = data?.type === "photo" && photos.length > 0;
@@ -455,20 +491,20 @@ export default function Home() {
                 }}
                 onTouchEnd={onTouchEnd}
               >
-                <img
+                <SmartImage
                   className="stage-blur"
-                  src={activePhoto.src}
+                  direct={activePhoto.direct}
+                  proxy={activePhoto.src}
                   alt=""
                   aria-hidden="true"
-                  onError={retryImage}
                 />
-                <img
+                <SmartImage
                   className="stage-img"
-                  src={activePhoto.src}
+                  direct={activePhoto.direct}
+                  proxy={activePhoto.src}
                   alt={`Slide ${slide + 1}`}
                   draggable={false}
                   onLoad={captureRatio}
-                  onError={retryImage}
                 />
 
                 <span className="badge badge-left">Slide</span>
@@ -529,19 +565,19 @@ export default function Home() {
               >
                 {data.cover ? (
                   <>
-                    <img
+                    <SmartImage
                       className="stage-blur"
-                      src={data.cover}
+                      direct={data.coverDirect}
+                      proxy={data.cover}
                       alt=""
                       aria-hidden="true"
-                  onError={retryImage}
                     />
-                    <img
+                    <SmartImage
                       className="thumb"
-                      src={data.cover}
+                      direct={data.coverDirect}
+                      proxy={data.cover}
                       alt="Thumbnail video"
                       onLoad={captureRatio}
-                  onError={retryImage}
                     />
                   </>
                 ) : (
@@ -696,29 +732,13 @@ export default function Home() {
             <div className="profile">
               
 {data.author.avatar && !avatarFailed ? (
-  <img
+  <SmartImage
     key={data.author.avatar}
     className="avatar"
-    src={data.author.avatar}
+    direct={data.author.avatarDirect}
+    proxy={data.author.avatar}
     alt={displayName}
-    referrerPolicy="no-referrer"
-    onError={(event) => {
-      const image = event.currentTarget;
-      const attempts = Number(image.dataset.attempts || 0);
-
-      if (attempts >= 5) {
-        setAvatarFailed(true);
-        return;
-      }
-
-      image.dataset.attempts = String(attempts + 1);
-
-      const separator = data.author.avatar!.includes("?") ? "&" : "?";
-
-      setTimeout(() => {
-        image.src = `${data.author.avatar}${separator}_retry=${Date.now()}`;
-      }, 800 * (attempts + 1));
-    }}
+    onFail={() => setAvatarFailed(true)}
   />
 ) : (
   <span className="avatar avatar-fallback">
