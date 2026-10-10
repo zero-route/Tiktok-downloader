@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyUrl } from "@/lib/sign";
+import {
+  IMAGE_ACCEPT,
+  imageVariants,
+  isImagePath,
+} from "@/lib/imageVariants";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,7 +72,7 @@ export async function GET(request: NextRequest) {
   }
 
   const headers: Record<string, string> = {
-    Accept: "*/*",
+    Accept: isImagePath(parsed.pathname) ? IMAGE_ACCEPT : "*/*",
     "User-Agent": USER_AGENT,
     Referer: "https://www.tiktok.com/",
   };
@@ -77,12 +82,49 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    let response = await fetch(target, {
-      method: "GET",
-      redirect: "follow",
-      cache: "no-store",
-      headers,
-    });
+    const candidates = imageVariants(target);
+    let chosen = parsed;
+    let response: Response | undefined;
+
+    for (let index = 0; index < candidates.length; index++) {
+      const isLast = index === candidates.length - 1;
+
+      try {
+        const attempt = await fetch(candidates[index], {
+          method: "GET",
+          redirect: "follow",
+          cache: "no-store",
+          headers,
+        });
+
+        const attemptType = (attempt.headers.get("content-type") || "")
+          .toLowerCase();
+
+        if (
+          attempt.ok &&
+          attempt.body &&
+          (isLast || /^image\/(jpe?g|webp|png)/.test(attemptType))
+        ) {
+          response = attempt;
+          chosen = new URL(candidates[index]);
+          break;
+        }
+
+        if (isLast) {
+          response = attempt;
+        } else {
+          await attempt.body?.cancel().catch(() => undefined);
+        }
+      } catch (error) {
+        if (isLast) {
+          throw error;
+        }
+      }
+    }
+
+    if (!response) {
+      return jsonError("Gagal mengambil file media.", 502);
+    }
 
     for (
       let attempt = 1;
@@ -95,7 +137,7 @@ export async function GET(request: NextRequest) {
     ) {
       await sleep(RETRY_DELAY_MS);
 
-      response = await fetch(target, {
+      response = await fetch(chosen.toString(), {
         method: "GET",
         redirect: "follow",
         cache: "no-store",
@@ -121,7 +163,7 @@ export async function GET(request: NextRequest) {
       return jsonError("Server media tidak mengembalikan file.", 502);
     }
 
-    const pathExtension = parsed.pathname.split(".").pop()?.toLowerCase() || "";
+    const pathExtension = chosen.pathname.split(".").pop()?.toLowerCase() || "";
 
     const inferred: Record<string, string> = {
       jpg: "image/jpeg",
@@ -154,7 +196,7 @@ export async function GET(request: NextRequest) {
     if (asDownload) {
       const extension =
         EXTENSIONS[contentType] ||
-        parsed.pathname.split(".").pop()?.toLowerCase().slice(0, 5) ||
+        chosen.pathname.split(".").pop()?.toLowerCase().slice(0, 5) ||
         "bin";
 
       const filename = `Vidzy_${sanitizeName(name)}.${extension}`;
@@ -163,7 +205,7 @@ export async function GET(request: NextRequest) {
       out.set("Cache-Control", "no-store");
     } else {
       out.set("Content-Disposition", "inline");
-      out.set("Cache-Control", "private, max-age=300");
+      out.set("Cache-Control", "private, max-age=1800");
     }
 
     return new NextResponse(response.body, {
