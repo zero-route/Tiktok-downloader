@@ -124,6 +124,16 @@ export default function Home() {
   } | null>(null);
 
   useEffect(() => {
+    if (!data) return;
+
+    data.photos.forEach((photo) => {
+      const image = new Image();
+
+      image.src = photo.src;
+    });
+  }, [data]);
+
+  useEffect(() => {
     if (!rendering) return;
 
     setElapsed(0);
