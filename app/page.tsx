@@ -106,6 +106,16 @@ export default function Home() {
   const [rendering, setRendering] = useState(false);
   const [slideshowError, setSlideshowError] = useState("");
   const [elapsed, setElapsed] = useState(0);
+  const [notice, setNotice] = useState("");
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function announce(message: string) {
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+
+    setNotice(message);
+
+    noticeTimer.current = setTimeout(() => setNotice(""), 7000);
+  }
   const [slideshowFile, setSlideshowFile] = useState<{
     url: string;
     name: string;
@@ -265,6 +275,7 @@ export default function Home() {
     if (bulk) return;
 
     setBulk(true);
+    announce(`Mengunduh ${photos.length} foto satu per satu...`);
 
     try {
       for (const photo of photos) {
@@ -309,7 +320,7 @@ export default function Home() {
 
       const blob = await response.blob();
       const objectUrl = URL.createObjectURL(blob);
-      const fileName = `Vidzy_${username || "tiktok"}_slideshow.mp4`;
+      const fileName = `Vidzy_${username || "tiktok"}_${data.id || "post"}_slideshow.mp4`;
       const link = document.createElement("a");
 
       link.href = objectUrl;
@@ -524,6 +535,7 @@ export default function Home() {
                 <a
                   className="btn btn-primary btn-block"
                   href={activePhoto.download}
+                  onClick={() => announce(`Mengunduh slide ${slide + 1}...`)}
                 >
                   <DownloadIcon />
                   <span>Download Slide {slide + 1}</span>
@@ -617,12 +629,26 @@ export default function Home() {
                   <a
                     className="btn btn-primary btn-block"
                     href={data.video.download}
+                    onClick={() => announce("Mengunduh video...")}
                   >
                     <DownloadIcon />
                     <span>Download</span>
                   </a>
                 </div>
               )
+            )}
+
+            {notice && (
+              <div className="alert" role="status">
+                <span className="spinner" aria-hidden="true" />
+                <div>
+                  <strong>{notice}</strong>
+                  <p>
+                    Unduhan diserahkan ke browser. Pantau di notifikasi
+                    unduhan Chrome atau menu ⋮ lalu Unduhan.
+                  </p>
+                </div>
+              </div>
             )}
           </section>
 
