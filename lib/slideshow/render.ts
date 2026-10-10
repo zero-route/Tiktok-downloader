@@ -10,6 +10,7 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
+import { IMAGE_ACCEPT, imageVariants } from "../imageVariants";
 import type {
   SlideshowInput,
   SlideshowResult,
@@ -53,6 +54,7 @@ function isAllowedUrl(value: string): URL {
 async function downloadAsset(
   rawUrl: string,
   maxBytes: number,
+  accept = "*/*",
 ): Promise<Buffer> {
   let url = isAllowedUrl(rawUrl);
   let response: Response | undefined;
@@ -61,7 +63,7 @@ async function downloadAsset(
     response = await fetch(url, {
       redirect: "manual",
       headers: {
-        Accept: "*/*",
+        Accept: accept,
         "User-Agent": USER_AGENT,
         Referer: "https://www.tiktok.com/",
       },
@@ -252,35 +254,46 @@ export async function renderSlideshow(
     const imagePaths: string[] = [];
 
     for (let i = 0; i < input.images.length; i++) {
-      const imageBuffer = await downloadAsset(
-        input.images[i],
-        MAX_IMAGE_BYTES,
-      );
-
       const index = String(i).padStart(3, "0");
       const rawPath = path.join(workDir, `raw-${index}.bin`);
       const imagePath = path.join(workDir, `image-${index}.jpg`);
+      let prepared = false;
 
-      await writeFile(rawPath, imageBuffer);
+      for (const candidate of imageVariants(input.images[i])) {
+        try {
+          const imageBuffer = await downloadAsset(
+            candidate,
+            MAX_IMAGE_BYTES,
+            IMAGE_ACCEPT,
+          );
 
-      try {
-        await run(
-          ffmpegPath,
-          [
-            "-hide_banner",
-            "-loglevel", "error",
-            "-y",
-            "-i", rawPath,
-            "-frames:v", "1",
-            "-pix_fmt", "yuvj420p",
-            "-q:v", "2",
-            imagePath,
-          ],
-          30_000,
-        );
-      } catch {
+          await writeFile(rawPath, imageBuffer);
+
+          await run(
+            ffmpegPath,
+            [
+              "-hide_banner",
+              "-loglevel", "error",
+              "-y",
+              "-i", rawPath,
+              "-frames:v", "1",
+              "-pix_fmt", "yuvj420p",
+              "-q:v", "2",
+              imagePath,
+            ],
+            30_000,
+          );
+
+          prepared = true;
+          break;
+        } catch {
+          continue;
+        }
+      }
+
+      if (!prepared) {
         throw new Error(
-          `Format gambar slide ${i + 1} tidak didukung (kemungkinan HEIC/AVIF).`,
+          `Gambar slide ${i + 1} tidak dapat diproses (kemungkinan format HEIC/AVIF).`,
         );
       }
 
