@@ -81,23 +81,47 @@ function parseDetails(body: Json): TikTokDetails | null {
   };
 }
 
+export type DetailsResult = {
+  data: TikTokDetails | null;
+  status: string;
+};
+
 export async function fetchTikTokDetails(
-  postUrl: string
-): Promise<TikTokDetails | null> {
+  postUrl: string,
+  originalUrl?: string
+): Promise<DetailsResult> {
   const key = process.env.RAPIDAPI_KEY;
 
   if (!key) {
-    return null;
+    return { data: null, status: "no-key" };
   }
 
   const host =
     process.env.RAPIDAPI_DETAILS_HOST?.trim() || DEFAULT_DETAILS_HOST;
 
-  const endpoint = `https://${host}/videos/details?video=${encodeURIComponent(
-    postUrl
-  )}`;
+  const candidates = [postUrl];
 
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  if (originalUrl && originalUrl !== postUrl) {
+    candidates.push(originalUrl);
+  }
+
+  const startedAt = Date.now();
+  const deadline = 46_000;
+  let status = "unknown";
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const remaining = deadline - (Date.now() - startedAt);
+
+    if (remaining < 4000) {
+      break;
+    }
+
+    const target = candidates[(attempt - 1) % candidates.length];
+
+    const endpoint = `https://${host}/videos/details?video=${encodeURIComponent(
+      target
+    )}`;
+
     try {
       const response = await fetch(endpoint, {
         method: "GET",
@@ -107,26 +131,41 @@ export async function fetchTikTokDetails(
           "X-Rapidapi-Host": host,
           Accept: "application/json",
         },
-        signal: AbortSignal.timeout(18_000),
+        signal: AbortSignal.timeout(Math.min(24_000, remaining)),
       });
 
-      const body = obj(await response.json().catch(() => null));
+      const text = await response.text();
+
+      let body: Json | null = null;
+
+      try {
+        body = obj(JSON.parse(text));
+      } catch {
+        body = null;
+      }
+
       const details = response.ok && body ? parseDetails(body) : null;
+
+      status = details
+        ? "ok"
+        : `http-${response.status}${body ? "" : "-bukan-json"}`;
 
       console.info(
         `[tiktok-details] attempt=${attempt} http=${response.status} valid=${
           details !== null
-        }`
+        }${details ? "" : ` body=${text.slice(0, 200).replace(/\s+/g, " ")}`}`
       );
 
       if (details) {
-        return details;
+        return { data: details, status };
       }
 
-      if ([400, 401, 403, 404, 422, 429].includes(response.status)) {
-        return null;
+      if ([401, 403, 404, 422].includes(response.status)) {
+        break;
       }
     } catch (error) {
+      status = "timeout-atau-jaringan";
+
       console.info(
         `[tiktok-details] attempt=${attempt} error=${
           error instanceof Error ? error.message : "unknown"
@@ -134,10 +173,10 @@ export async function fetchTikTokDetails(
       );
     }
 
-    if (attempt < 2) {
-      await sleep(800);
+    if (attempt < 3) {
+      await sleep(1200);
     }
   }
 
-  return null;
+  return { data: null, status };
 }
