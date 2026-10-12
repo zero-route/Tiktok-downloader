@@ -11,16 +11,27 @@ type MediaFile = {
   direct?: string;
 };
 
+type Stats = {
+  views: number | null;
+  likes: number | null;
+  comments: number | null;
+  shares: number | null;
+  saves: number | null;
+  reposts: number | null;
+};
+
 type MediaData = {
   id: string | null;
   type: "video" | "photo";
   description: string | string[] | null;
   profileUrl: string | null;
+  stats?: Stats;
   cover: string | null;
   coverDirect?: string | null;
   author: {
     username: string | null;
     nickname: string | null;
+    followers?: number | null;
     avatar: string | null;
     avatarDirect?: string | null;
   };
@@ -85,6 +96,68 @@ function ExternalIcon() {
       <path d="M18 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5" />
       <path d="M15 3h6v6" />
       <path d="M10 14 21 3" />
+    </Icon>
+  );
+}
+
+const countFormat = new Intl.NumberFormat("id-ID", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+function formatCount(value: number) {
+  return countFormat.format(value);
+}
+
+function EyeIcon() {
+  return (
+    <Icon size={19}>
+      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </Icon>
+  );
+}
+
+function HeartIcon() {
+  return (
+    <Icon size={19}>
+      <path d="M20.8 5.6a5.2 5.2 0 0 0-7.4 0L12 7l-1.4-1.4a5.2 5.2 0 0 0-7.4 7.4L12 21.8l8.8-8.8a5.2 5.2 0 0 0 0-7.4Z" />
+    </Icon>
+  );
+}
+
+function CommentIcon() {
+  return (
+    <Icon size={19}>
+      <path d="M21 12a8.5 8.5 0 0 1-12.4 7.5L3 21l1.6-5.2A8.5 8.5 0 1 1 21 12Z" />
+    </Icon>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <Icon size={19}>
+      <path d="M22 2 11 13" />
+      <path d="M22 2 15 22l-4-9-9-4 20-7Z" />
+    </Icon>
+  );
+}
+
+function SaveIcon() {
+  return (
+    <Icon size={19}>
+      <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4.5L5 21V4a1 1 0 0 1 1-1Z" />
+    </Icon>
+  );
+}
+
+function RepostIcon() {
+  return (
+    <Icon size={19}>
+      <path d="m17 2 4 4-4 4" />
+      <path d="M3 11V9a3 3 0 0 1 3-3h15" />
+      <path d="m7 22-4-4 4-4" />
+      <path d="M21 13v2a3 3 0 0 1-3 3H3" />
     </Icon>
   );
 }
@@ -447,6 +520,27 @@ export default function Home() {
 
   const displayName = data?.author.nickname || username || "TikTok User";
 
+  const statItems: { key: string; label: string; icon: React.ReactNode; value: number }[] = [];
+
+  if (data?.stats) {
+    const entries: [string, string, React.ReactNode, number | null][] = [
+      ["views", "Tayangan", <EyeIcon key="views" />, data.stats.views],
+      ["likes", "Suka", <HeartIcon key="likes" />, data.stats.likes],
+      ["comments", "Komentar", <CommentIcon key="comments" />, data.stats.comments],
+      ["shares", "Bagikan", <ShareIcon key="shares" />, data.stats.shares],
+      ["saves", "Simpan", <SaveIcon key="saves" />, data.stats.saves],
+      ["reposts", "Posting ulang", <RepostIcon key="reposts" />, data.stats.reposts],
+    ];
+
+    for (const [key, label, icon, value] of entries) {
+      if (value !== null) {
+        statItems.push({ key, label, icon, value });
+      }
+    }
+  }
+
+  const followers = data?.author.followers ?? null;
+
   return (
     <main className="page">
       <header className="topbar">
@@ -793,7 +887,12 @@ export default function Home() {
 
               <div className="profile-text">
                 <strong>{displayName}</strong>
-                {username && <span>@{username}</span>}
+                {username && (
+                  <span>
+                    @{username}
+                    {followers !== null && ` · ${formatCount(followers)} pengikut`}
+                  </span>
+                )}
               </div>
 
               {data.profileUrl && (
@@ -808,6 +907,20 @@ export default function Home() {
                 </a>
               )}
             </div>
+
+            {statItems.length > 0 && (
+              <div className="stats" role="list">
+                {statItems.map((item) => (
+                  <div className="stat" role="listitem" key={item.key}>
+                    <div className="stat-top">
+                      {item.icon}
+                      <strong>{formatCount(item.value)}</strong>
+                    </div>
+                    <span>{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {caption && (
               <div className="caption">
