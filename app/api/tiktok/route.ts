@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchTikTokMedia, ProviderError } from "@/lib/rapidapi";
+import {
+  fetchTikTokMedia,
+  ProviderError,
+  resolvePostUrl,
+} from "@/lib/rapidapi";
+import { fetchTikTokDetails } from "@/lib/details";
 import { proxyPath } from "@/lib/sign";
 
 export const runtime = "nodejs";
@@ -40,27 +45,55 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const media = await fetchTikTokMedia(inputUrl);
-    const username = media.author.username || "tiktok";
+    const postUrl = await resolvePostUrl(inputUrl);
+
+    const [media, details] = await Promise.all([
+      fetchTikTokMedia(postUrl),
+      fetchTikTokDetails(postUrl).catch(() => null),
+    ]);
+
+    const username = media.author.username || details?.author.username || "tiktok";
+    const nickname = media.author.nickname || details?.author.nickname || null;
+    const avatar = media.author.avatar || details?.author.avatar || null;
+    const description = media.description || details?.description || "";
     const baseName = media.id ? `${username}_${media.id}` : username;
+
+    const mainHasStats =
+      media.stats.views + media.stats.likes + media.stats.comments + media.stats.shares >
+      0;
+
+    const stats = {
+      views: details?.stats.views ?? (mainHasStats ? media.stats.views : null),
+      likes: details?.stats.likes ?? (mainHasStats ? media.stats.likes : null),
+      comments:
+        details?.stats.comments ?? (mainHasStats ? media.stats.comments : null),
+      shares:
+        details?.stats.shares ?? (mainHasStats ? media.stats.shares : null),
+      saves: details?.stats.saves ?? null,
+      reposts: details?.stats.reposts ?? null,
+    };
 
     return NextResponse.json({
       ok: true,
       data: {
         id: media.id,
         type: media.type,
-        description: media.description,
-        stats: media.stats,
+        description,
+        stats,
         originalUrl: inputUrl,
         meta: media.meta,
-        profileUrl: media.author.username
-          ? `https://www.tiktok.com/@${media.author.username}`
-          : null,
+        profileUrl:
+          media.author.username || details?.author.username
+            ? `https://www.tiktok.com/@${
+                media.author.username || details?.author.username
+              }`
+            : null,
         author: {
-          username: media.author.username,
-          nickname: media.author.nickname,
-          avatar: media.author.avatar ? proxyPath(media.author.avatar) : null,
-          avatarDirect: media.author.avatar,
+          username: media.author.username || details?.author.username || null,
+          nickname,
+          followers: details?.author.followers ?? null,
+          avatar: avatar ? proxyPath(avatar) : null,
+          avatarDirect: avatar,
         },
         cover: media.cover ? proxyPath(media.cover) : null,
         coverDirect: media.cover,
