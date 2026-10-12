@@ -505,7 +505,7 @@ function normalizePath(value: string) {
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 }
 
-async function resolvePostUrl(inputUrl: string) {
+export async function resolvePostUrl(inputUrl: string) {
   let current = inputUrl;
 
   for (let i = 0; i < 5; i++) {
