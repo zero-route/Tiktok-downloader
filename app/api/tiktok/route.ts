@@ -47,10 +47,15 @@ export async function GET(request: NextRequest) {
   try {
     const postUrl = await resolvePostUrl(inputUrl);
 
-    const [media, details] = await Promise.all([
+    const [media, detailsResult] = await Promise.all([
       fetchTikTokMedia(postUrl),
-      fetchTikTokDetails(postUrl).catch(() => null),
+      fetchTikTokDetails(postUrl, inputUrl).catch(() => ({
+        data: null,
+        status: "error",
+      })),
     ]);
+
+    const details = detailsResult.data;
 
     const username = media.author.username || details?.author.username || "tiktok";
     const nickname = media.author.nickname || details?.author.nickname || null;
@@ -81,7 +86,7 @@ export async function GET(request: NextRequest) {
         description,
         stats,
         originalUrl: inputUrl,
-        meta: media.meta,
+        meta: { ...media.meta, details: detailsResult.status },
         profileUrl:
           media.author.username || details?.author.username
             ? `https://www.tiktok.com/@${
