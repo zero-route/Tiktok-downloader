@@ -12,8 +12,6 @@
   --white: #f4f4f5;
   --accent: #25f4ee;
   --accent-strong: #5ff8f3;
-  --accent-soft: rgba(37, 244, 238, 0.14);
-  --accent-glow: rgba(37, 244, 238, 0.32);
   --radius-lg: 20px;
   --radius-md: 13px;
   --radius-sm: 10px;
@@ -140,7 +138,6 @@ a {
 
 .field:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .field-icon {
@@ -201,12 +198,10 @@ a {
 .btn-primary {
   background: var(--accent);
   color: #04100f;
-  box-shadow: 0 0 22px -6px var(--accent-glow);
 }
 
 .btn-primary:hover:not(:disabled) {
   background: var(--accent-strong);
-  box-shadow: 0 0 28px -4px var(--accent-glow);
 }
 
 .btn-ghost {
@@ -218,7 +213,6 @@ a {
 .btn-ghost:hover:not(:disabled) {
   background: #ffffff;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .btn-outline {
@@ -363,7 +357,6 @@ a {
   background: rgba(16, 16, 17, 0.82);
   border: 1px solid var(--accent);
   color: var(--accent);
-  box-shadow: 0 0 24px -4px var(--accent-glow);
   display: flex;
   align-items: center;
   justify-content: center;
