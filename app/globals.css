@@ -196,12 +196,12 @@ a {
 }
 
 .btn-primary {
-  background: var(--accent);
+  background: linear-gradient(135deg, #20b9c5 0%, #168eaa 100%);
   color: #04100f;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--accent-strong);
+  filter: brightness(1.06);
 }
 
 .btn-ghost {
