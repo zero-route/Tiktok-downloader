@@ -4,6 +4,11 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Vidzy - TikTok Downloader",
   description: "Unduh video dan slideshow TikTok dengan cepat dan mudah.",
+  icons: {
+    icon: "/logo.png", 
+    shortcut: "/logo.png",
+    apple: "/logo.png"
+  }
 };
 
 export const viewport: Viewport = {
