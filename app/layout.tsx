@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Vidzy - TikTok Downloader",
+  title: "Vidzly - TikTok Downloader",
   description: "Unduh video dan slideshow TikTok dengan cepat dan mudah.",
   icons: {
     icon: "/logo.png", 

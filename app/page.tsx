@@ -499,7 +499,7 @@ export default function Home() {
 
       const blob = await response.blob();
       const objectUrl = URL.createObjectURL(blob);
-      const fileName = `Vidzy_${username || "tiktok"}_${data.id || "post"}_slideshow.mp4`;
+      const fileName = `Vidzly_${username || "tiktok"}_${data.id || "post"}_slideshow.mp4`;
       const link = document.createElement("a");
 
       link.href = objectUrl;
@@ -544,8 +544,8 @@ export default function Home() {
   return (
     <main className="page">
       <header className="topbar">
-        <a className="brand" href="#top" aria-label="Vidzy beranda">
-          Vidzy
+        <a className="brand" href="#top" aria-label="Vidzly beranda">
+          Vidzly
         </a>
         <span className="brand-note">TikTok Downloader</span>
       </header>
