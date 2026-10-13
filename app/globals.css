@@ -356,8 +356,8 @@ a {
   margin: -27px 0 0 -27px;
   border-radius: 50%;
   background: rgba(16, 16, 17, 0.82);
-  border: 1px solid var(--muted);
-  color: var(--border);
+  border: 1px solid var(--white);
+  color: var(--white);
   display: flex;
   align-items: center;
   justify-content: center;
