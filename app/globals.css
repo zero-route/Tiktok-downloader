@@ -354,15 +354,14 @@ a {
   width: 54px;
   height: 54px;
   margin: -27px 0 0 -27px;
-  border: none;
   border-radius: 50%;
-  background: transparent;
-  box-shadow: none;
-  color: #F1F1F2;
+  background: rgba(16, 16, 17, 0.82);
+  border: 1px solid var(--muted);
+  color: var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.15s;
+  transition: transform 0.15s, background 0.15s;
 }
 
 .play svg {
