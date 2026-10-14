@@ -5,9 +5,9 @@ export const metadata: Metadata = {
   title: "Vidzly - TikTok Downloader",
   description: "Unduh video dan slideshow TikTok dengan cepat dan mudah.",
   icons: {
-    icon: "/logo.png", 
-    shortcut: "/logo.png",
-    apple: "/logo.png"
+    icon: "/icon.png", 
+    shortcut: "/icon.png",
+    apple: "/icon.png"
   },
 };
 
