@@ -137,10 +137,7 @@ a {
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.field:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(22, 139, 255, 0.12);
-}
+
 
 .field-icon {
   display: flex;
@@ -545,7 +542,10 @@ a {
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-
+.avatar:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(22, 139, 255, 0.15);
+}
 
 .avatar-fallback {
   display: flex;
