@@ -1,6 +1,5 @@
 
-const DEFAULT_HOST =
-  "tiktok-downloader-download-tiktok-videos-without-watermark.p.rapidapi.com";
+const DEFAULT_HOST = "instagram-tiktok-youtube-downloader.p.rapidapi.com";
 
 type Json = Record<string, unknown>;
 
@@ -254,6 +253,9 @@ function extractPhotos(root: Json, extra: Json[]) {
     "image_urls",
     "imageUrls",
     "pictures",
+    "image_list",
+    "imageList",
+    "download_urls",
   ];
 
   for (const source of [root, ...extra]) {
@@ -346,7 +348,14 @@ export function normalizeMedia(
       "audio",
       "audio_url",
       "audioUrl",
+      "audio_download_url",
+      "audioDownloadUrl",
+      "audio_link",
+      "music_download_url",
+      "music_link",
       "sound",
+      "sound_url",
+      "bgm_url",
     ]) ?? null;
 
   if (photos.length === 0 && !videoUrl) {
@@ -427,6 +436,8 @@ export function normalizeMedia(
         "dynamic_cover",
         "dynamicCover",
         "thumbnail",
+        "thumbnail_url",
+        "thumbnailUrl",
         "thumb",
         "poster",
       ],
@@ -568,6 +579,7 @@ async function callProvider(
         Accept: "application/json",
       },
       cache: "no-store",
+      signal: AbortSignal.timeout(25_000),
     }
   );
 
@@ -633,12 +645,12 @@ function resultScore(result: ProviderResult) {
 }
 
 function isComplete(result: ProviderResult) {
-  return !result.backup && Boolean(result.media.author.avatar);
+  return !result.backup;
 }
 
 async function fetchOnce(targetUrl: string): Promise<ProviderResult> {
   const key = process.env.RAPIDAPI_KEY;
-  const host = process.env.RAPIDAPI_HOST || DEFAULT_HOST;
+  const host = process.env.RAPIDAPI_DOWNLOAD_HOST?.trim() || DEFAULT_HOST;
 
   if (!key) {
     throw new ProviderError(
@@ -647,53 +659,12 @@ async function fetchOnce(targetUrl: string): Promise<ProviderResult> {
     );
   }
 
-  const videoPath = normalizePath(
-    process.env.RAPIDAPI_VIDEO_PATH || "/vid/index"
-  );
-  const photoPath = normalizePath(
-    process.env.RAPIDAPI_PHOTO_PATH || "/index"
-  );
+  const path = normalizePath(process.env.RAPIDAPI_PATH || "/fetch");
 
-  const isPhoto = /\/photo\/\d+/.test(targetUrl);
-  const isVideo = /\/video\/\d+/.test(targetUrl);
-  const order = isVideo ? [videoPath, photoPath] : [photoPath, videoPath];
+  const payload = await callProvider(host, key, path, targetUrl);
+  const media = normalizeMedia(payload, targetUrl);
 
-  let lastError: ProviderError | null = null;
-
-  for (const path of order) {
-    try {
-      const payload = await callProvider(host, key, path, targetUrl);
-
-      const media = normalizeMedia(payload, targetUrl);
-
-      if (path === photoPath && !isPhoto && !isVideo && media.type !== "photo") {
-        continue;
-      }
-
-      return { media, backup: isBackupPayload(payload) };
-    } catch (error) {
-      const failure =
-        error instanceof ProviderError
-          ? error
-          : new ProviderError(
-              error instanceof Error
-                ? error.message
-                : "Gagal memanggil provider."
-            );
-
-      if (
-        failure.status === 429 ||
-        failure.status === 403 ||
-        failure.status === 500
-      ) {
-        throw failure;
-      }
-
-      lastError = failure;
-    }
-  }
-
-  throw lastError ?? new ProviderError("Gagal memanggil provider.");
+  return { media, backup: isBackupPayload(payload) };
 }
 
 export async function fetchTikTokMedia(inputUrl: string) {
@@ -716,6 +687,15 @@ export async function fetchTikTokMedia(inputUrl: string) {
     try {
       result = await fetchOnce(targetUrl);
     } catch (error) {
+      const transient =
+        error instanceof ProviderError &&
+        error.status === 502 &&
+        attempt < MAX_PROVIDER_ATTEMPTS - 1;
+
+      if (transient) {
+        continue;
+      }
+
       if (!best) {
         throw error;
       }
