@@ -245,6 +245,7 @@ function unwrap(payload: unknown) {
 
 function extractPhotos(root: Json, extra: Json[]) {
   const keys = [
+    "items",
     "images",
     "image_post",
     "imagePost",
