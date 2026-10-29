@@ -547,7 +547,7 @@ export default function Home() {
         <a className="brand" href="#top" aria-label="Vidzly beranda">
           Vidzly
         </a>
-        <span className="brand-note">TikTok Downloader</span>
+        <span className="brand-note">TikTok Downloadr</span>
       </header>
 
       <section className="hero" id="top">
